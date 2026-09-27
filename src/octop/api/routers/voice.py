@@ -58,6 +58,13 @@ def _active_payload(mgr: VoiceManager) -> dict[str, Any]:
     return active
 
 
+def _mask_api_key(api_key: str | None) -> str | None:
+    """Mask a stored credential for API responses (first 4 chars + asterisks)."""
+    if not api_key:
+        return None
+    return f"{api_key[:4]}{'*' * 8}" if len(api_key) > 4 else "*" * len(api_key)
+
+
 def _row_to_dict(r: Any) -> dict[str, Any]:
     return {
         "id": r.id,
@@ -65,7 +72,7 @@ def _row_to_dict(r: Any) -> dict[str, Any]:
         "kind": r.kind,
         "capability": r.capability,
         "base_url": r.base_url,
-        "api_key": r.api_key,
+        "api_key": _mask_api_key(r.api_key),
         "extra": r.get_extra(),
         "note": r.note,
         "enabled": bool(r.enabled),
