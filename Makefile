@@ -251,10 +251,17 @@ precommit: format-all lint typecheck test-affected
 # silently run zero tests. The patch in conftest.py / tests/support/
 # testmon_staged_changes.py redirects detection to `git diff HEAD` (staged +
 # unstaged) so the gate actually fires on a commit's changes.
+#
+# NOTE: `-n $(PYTEST_JOBS)` matters as much as the testmon scoping. Without it
+# this target is the only pytest entry point that runs serially, so a commit
+# touching anything shared (a router, conftest, a utils module) degrades into
+# the whole suite on one core — measured at ~4.5 h for the 4684-test suite.
+# testmon still records results correctly under xdist because reports are
+# funnelled back to the controller process.
 .PHONY: test-affected
 test-affected:
-	@echo "[test] pytest (testmon: only tests affected by changes)..."
-	$(RUN) pytest --testmon
+	@echo "[test] pytest (testmon: only tests affected by changes, -n $(PYTEST_JOBS))..."
+	$(RUN) pytest --testmon -n $(PYTEST_JOBS)
 
 # ─── Quality (frontend) ──────────────────────────────────────────────────────
 
