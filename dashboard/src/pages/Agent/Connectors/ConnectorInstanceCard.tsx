@@ -74,12 +74,7 @@ export function ConnectorInstanceCard({
       onClick={() => editable && onEdit(instance)}
       role={editable ? "button" : undefined}
       tabIndex={editable ? 0 : -1}
-      onKeyDown={(e) => {
-        if ((e.key === "Enter" || e.key === " ") && editable) {
-          e.preventDefault();
-          onEdit(instance);
-        }
-      }}
+      onKeyDown={(e) => e.key === "Enter" && editable && onEdit(instance)}
     >
       <div className={styles.typeCardBody}>
         <div className={styles.typeCardHeader}>

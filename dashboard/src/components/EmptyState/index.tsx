@@ -42,7 +42,6 @@ export function EmptyState({
       <AlertCircle
         size={40}
         strokeWidth={1.2}
-        aria-hidden
         style={{ color: "var(--fn-color-danger)" }}
       />
     ) : variant === "mascot" ? (
@@ -51,7 +50,6 @@ export function EmptyState({
       <Inbox
         size={40}
         strokeWidth={1.2}
-        aria-hidden
         style={{ color: "var(--fn-text-quaternary, #bfbfbf)" }}
       />
     );

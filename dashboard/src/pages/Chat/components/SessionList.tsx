@@ -191,9 +191,7 @@ const SessionItem = memo(function SessionItem({
         />
       ) : (
         <>
-          <span className={styles.sessionRowTitle} title={session.name}>
-            {session.name}
-          </span>
+          <span className={styles.sessionRowTitle}>{session.name}</span>
           {session.pinned ? (
             <span
               className={styles.sessionRowPinIndicator}
@@ -313,9 +311,7 @@ function ActiveAgentCard({
         <div className={styles.agentCardInfo}>
           <div className={styles.agentCardNameRow}>
             <div className={styles.agentNameCluster}>
-              <div className={styles.agentCardName} title={agent.name}>
-                {agent.name}
-              </div>
+              <div className={styles.agentCardName}>{agent.name}</div>
               <TeamChatBadge agent={agent} />
               <SharedExpertHint agent={agent} />
               <RemoteExpertHint agent={agent} />
@@ -456,9 +452,7 @@ function InactiveAgentRow({
         <div className={styles.agentRowInfo}>
           <div className={styles.agentRowNameRow}>
             <div className={styles.agentNameCluster}>
-              <div className={styles.agentRowName} title={agent.name}>
-                {agent.name}
-              </div>
+              <div className={styles.agentRowName}>{agent.name}</div>
               <TeamChatBadge agent={agent} />
               <SharedExpertHint agent={agent} />
               <RemoteExpertHint agent={agent} />

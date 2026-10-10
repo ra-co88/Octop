@@ -49,7 +49,6 @@ export default function PaletteSwitcher() {
           aria-label={t("header.palette.custom")}
           aria-pressed={isCustom}
           role="button"
-          tabIndex={0}
         >
           <ColorPicker
             value={customColor}

@@ -218,12 +218,7 @@ export function SkillCard({
       onMouseLeave={onMouseLeave}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick();
-        }
-      }}
+      onKeyDown={(e) => e.key === "Enter" && onClick()}
     >
       <div className={styles.cardBody}>
         <div className={styles.cardHeader}>
