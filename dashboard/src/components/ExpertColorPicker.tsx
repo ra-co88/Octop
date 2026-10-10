@@ -62,7 +62,6 @@ export default function ExpertColorPicker({
           aria-label={t("experts.customColor")}
           aria-pressed={!curated}
           role="button"
-          tabIndex={0}
         >
           <ColorPicker
             value={curated ? PALETTE_SWATCH[resolved] : resolved}
