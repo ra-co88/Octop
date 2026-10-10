@@ -6,6 +6,45 @@
 
 ## [Unreleased]
 
+### 安全
+
+- 安装向导续跑接口 `POST /api/setup/resume-wizard` 不再匿名可调用：需向导密码、有效向导令牌或管理员 JWT，并按 IP 限流；安装完成状态改由持久化标记 `setup_completed_at` 判定，取代按用户数推断的脆弱启发式（SEC-1）
+- 工作区文件读写统一收敛到 `_safe_io_path()` 路径边界：HTTP 接口不再接受 `from_workspace` 参数，路径一律按工作区相对解析，仅显式 `file://` URL 可访问宿主绝对路径，且需通过下载白名单与新增的 Octop 控制面拒绝规则（`~/.octop` 永不可经工作区接口读写）（SEC-2）
+- 角色变更与创建管理员账号需管理员权限；普通权限持有者此前可自行提权为 admin（SEC-3）
+- 模型 / 语音提供商的 `api_key` 在列表与详情响应中脱敏（前 4 位 + 星号），明文密钥不再下发到前端（SEC-4）
+- 浏览器 WebSocket / HTTP 路由、文件系统 `ensure-bwrap` / `ensure-docker`、连接器内部接口补齐此前缺失的 browser / admin 权限校验；`write_doc` 改为仅所有者可写（SEC-6/7/13）
+- 提供商探测与模型列表拉取的 `base_url`、插件安装 URL 统一走 SSRF 校验（本地运行时豁免）（SEC-8/10）
+- `HITL resume` 校验会话归属（用户 + 智能体），此前可对任意 thread 设置审批策略（SEC-16）
+- `/api/setup/status` 不再返回向导密码文件路径（SEC-17）
+- 审计日志 `limit` 收敛到 1..1000（SEC-15）；查询串 `access_token` 鉴权仅保留给 SSE 轨迹流，其余路由强制走 `Authorization` 头（SEC-19）
+- 内部令牌比对改用常量时间比较；skillhub 子命令在用户可控位置参数前插入 `--`（SEC-14a/20）
+- `browser/stream.py`、`browser/harness.py`、`browser/record_replay.py`、`filesystem.py` 纳入 ACL 回归测试清单，权限校验无法再静默回退（GATE-1）
+
+### 修复
+
+- 预览媒体不再信任前端传入的 MIME 提示：SVG 一律强制下载并附 `nosniff`（SEC-11）
+- 工作区文件编辑器存在竞态：快速切换文件时旧请求的响应可能覆盖当前内容、保存也可能写入错误文件。现改为读请求带代次计数、保存绑定实际加载的路径（FE-4 / RACE-1）
+- 推送消息此前会追加到每一个缓存会话，把录制 / 自动化进度串进无关的会话；现在只追加到当前聚焦的会话（FE-3）
+- 会话偏好（模式切换等）的 4 个并发 PATCH 此前存在乱序写入风险，现串行化并在失败时记录日志（FE-4）
+- `FileEditModal` 读取失败时静默填充空编辑器，保存会覆盖真实文件；现在显式报错，并对未保存修改做二次确认（FE-2）
+- 401 重定向闩锁在登录成功后不重新武装；SSO 弹窗轮询未在卸载时清理；`localStorage` 在受限浏览器中抛异常导致全部请求失败；智能体保存与会话重命名可重复提交（FE-1/5/12/14/15）
+- 环境变量脱敏改为按模式匹配（`*_KEY` / `*_SECRET` / `*_TOKEN` / `*_PASSWORD`），此前只覆盖两个固定键（SEC-18）
+
+### 可访问性
+
+- 聊天消息列表改为 `role="log"` + `aria-live="polite"`，流式输出可被读屏软件播报；`aria-busy` 标记流式状态（A11Y-1）
+- 侧边栏、标签栏、智能体选择器补齐语义：`nav` 地标、`aria-current="page"`、真实 `<button role="tab">` + 方向键 / Home / End 漫游焦点、`h1` 标题层级、随路由更新的 `document.title`（A11Y-3/4/8b/9/10）
+- 新增通用 `AppDialog`（打开时聚焦、Tab 焦点陷阱、Esc 关闭、卸载时归还焦点），替换 3 处手写弹窗；全局遵循 `prefers-reduced-motion`（A11Y-5/8a）
+- 输入框补齐 ARIA combobox 语义（`aria-expanded` / `aria-haspopup` / `aria-controls`），斜杠命令与 @ 提及菜单改为 `listbox` / `option`（A11Y-11）
+- 所有仅响应 Enter 的 `role="button"` 元素补齐 Space 键；装饰性图标标记 `aria-hidden`；截断文本补 `title`；自定义色板可聚焦（A11Y-8a/13/14/15/16）
+- 登录与设置向导输入框补 `aria-label` 与正确的 `autocomplete`；页面提供跳转到主内容的 skip link（A11Y-7/10）
+
+### 界面
+
+- 补齐 31 个缺失的 `--fn-*` 设计 token（以规范 token 为别名，主题 / 配色切换自动跟随），修复 30 处无 fallback 的 `var()` 失效——卡片无背景、错误文案不显红（UI-2 / GATE-2）
+- 玫瑰主色加深至 `#B83A50`（白底 5.59:1），暗色 `--fn-text-tertiary` / `--fn-text-placeholder` 提升至 4.5:1 以上，告警文本加深；智能体状态点改用色盲友好配色。新增 `themeContrast.test.ts` 在 CI 中锁定对比度（A11Y-6）
+- Mermaid 图表渲染由 `securityLevel: "loose"` 改为 `"strict"`（走 DOMPurify 分支）（SEC-5）
+
 ## [1.0.2b2] - 2026-09-23
 
 ### 新增
