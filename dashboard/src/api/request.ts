@@ -44,14 +44,51 @@ export function isSetupRequiredKnown(): boolean {
   return _setupRequiredKnown;
 }
 
+/**
+ * Web storage can throw on *access*, not only on use: embedded webviews and
+ * private-mode browsers raise SecurityError from the property itself. Every
+ * auth-storage touch goes through these so a blocked store degrades to "no
+ * token" instead of taking down every request before it is sent.
+ */
+function readItem(
+  store: "localStorage" | "sessionStorage",
+  key: string,
+): string | null {
+  try {
+    return window[store].getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeItem(
+  store: "localStorage" | "sessionStorage",
+  key: string,
+  value: string,
+): void {
+  try {
+    window[store].setItem(key, value);
+  } catch {
+    // Storage unavailable — the login simply will not survive a reload.
+  }
+}
+
+function dropItem(store: "localStorage" | "sessionStorage", key: string): void {
+  try {
+    window[store].removeItem(key);
+  } catch {
+    // Nothing to clear if the store is unreachable.
+  }
+}
+
 /** Stash the login-page "remember me" choice for SSO redirects / popups. */
 export function setRememberLoginPreference(remember: boolean): void {
-  sessionStorage.setItem(AUTH_REMEMBER_PREF_KEY, remember ? "1" : "0");
+  writeItem("sessionStorage", AUTH_REMEMBER_PREF_KEY, remember ? "1" : "0");
 }
 
 /** Read the stashed remember preference (defaults to true). */
 export function getRememberLoginPreference(): boolean {
-  return sessionStorage.getItem(AUTH_REMEMBER_PREF_KEY) !== "0";
+  return readItem("sessionStorage", AUTH_REMEMBER_PREF_KEY) !== "0";
 }
 
 /**
@@ -61,8 +98,8 @@ export function getRememberLoginPreference(): boolean {
  */
 export function isSessionOnlyAuth(): boolean {
   return (
-    sessionStorage.getItem(AUTH_TOKEN_KEY) != null &&
-    localStorage.getItem(AUTH_TOKEN_KEY) == null
+    readItem("sessionStorage", AUTH_TOKEN_KEY) != null &&
+    readItem("localStorage", AUTH_TOKEN_KEY) == null
   );
 }
 
@@ -73,30 +110,36 @@ export function isSessionOnlyAuth(): boolean {
  */
 export function setAuthToken(token: string, remember: boolean = true) {
   if (remember) {
-    localStorage.setItem(AUTH_TOKEN_KEY, token);
-    sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    writeItem("localStorage", AUTH_TOKEN_KEY, token);
+    dropItem("sessionStorage", AUTH_TOKEN_KEY);
   } else {
-    sessionStorage.setItem(AUTH_TOKEN_KEY, token);
-    localStorage.removeItem(AUTH_TOKEN_KEY);
+    writeItem("sessionStorage", AUTH_TOKEN_KEY, token);
+    dropItem("localStorage", AUTH_TOKEN_KEY);
   }
+  // Holding a fresh token means the previous login redirect already served its
+  // purpose, so re-arm the latch. Without this the one-shot guard in
+  // handleUnauthorized() stays set for the life of the page and every later
+  // expiry is swallowed: the user signs back in and is then left staring at
+  // failing requests instead of being sent to the login screen again.
+  _redirectingToLogin = false;
   clearSetupRequired();
 }
 
 /** Get JWT token from localStorage or (session-only) sessionStorage. */
 export function getAuthToken(): string {
   return (
-    localStorage.getItem(AUTH_TOKEN_KEY) ||
-    sessionStorage.getItem(AUTH_TOKEN_KEY) ||
+    readItem("localStorage", AUTH_TOKEN_KEY) ||
+    readItem("sessionStorage", AUTH_TOKEN_KEY) ||
     ""
   );
 }
 
 /** Remove JWT token from both storages. */
 export function clearAuthToken() {
-  localStorage.removeItem(AUTH_TOKEN_KEY);
-  sessionStorage.removeItem(AUTH_TOKEN_KEY);
-  sessionStorage.removeItem(AUTH_REMEMBER_PREF_KEY);
-  localStorage.removeItem("octop:active-agent");
+  dropItem("localStorage", AUTH_TOKEN_KEY);
+  dropItem("sessionStorage", AUTH_TOKEN_KEY);
+  dropItem("sessionStorage", AUTH_REMEMBER_PREF_KEY);
+  dropItem("localStorage", "octop:active-agent");
   setActiveAgentId(null);
 }
 
