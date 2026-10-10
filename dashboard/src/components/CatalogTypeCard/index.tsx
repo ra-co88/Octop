@@ -37,13 +37,7 @@ export const CatalogTypeCard = memo(function CatalogTypeCard({
       onClick={() => !disabled && onClick()}
       role="button"
       tabIndex={disabled ? -1 : 0}
-      aria-disabled={disabled || undefined}
-      onKeyDown={(e) => {
-        if ((e.key === "Enter" || e.key === " ") && !disabled) {
-          e.preventDefault();
-          onClick();
-        }
-      }}
+      onKeyDown={(e) => e.key === "Enter" && !disabled && onClick()}
     >
       {configuredBadge}
 

@@ -36,6 +36,8 @@ import {
   isAgentModelConfigError,
 } from "../../../utils/agentError";
 import styles from "../index.module.less";
+import RemoteExpertHint from "../../Chat/components/RemoteExpertHint";
+import { expertDeleteConfirm } from "../../../utils/remoteExpert";
 import { isSharedExpertViewer } from "../../../utils/sharedExpert";
 import type { PublishedExpert } from "../../../api/modules/publishedExperts";
 import PublishTemplateButton from "./PublishTemplateButton";
@@ -45,14 +47,12 @@ const STATE_META: Record<
   string,
   { color: string; bg: string; spin?: boolean }
 > = {
-  /* Colour-blind-safe state palette (audit A11Y-6): all ≥4.5:1 on the card
-     background as text, and green/amber/red distinguished by lightness. */
-  running: { color: "#047857", bg: "rgba(4,120,87,0.12)" },
-  stopped: { color: "#6b7280", bg: "rgba(107,114,128,0.10)" },
-  created: { color: "#6b7280", bg: "rgba(107,114,128,0.10)" },
-  failed: { color: "#b91c1c", bg: "rgba(185,28,28,0.10)" },
-  starting: { color: "#1d4ed8", bg: "rgba(29,78,216,0.10)", spin: true },
-  stopping: { color: "#1d4ed8", bg: "rgba(29,78,216,0.10)", spin: true },
+  running: { color: "#52c41a", bg: "rgba(82,196,26,0.12)" },
+  stopped: { color: "#8c8c8c", bg: "rgba(140,140,140,0.10)" },
+  created: { color: "#8c8c8c", bg: "rgba(140,140,140,0.10)" },
+  failed: { color: "#ff4d4f", bg: "rgba(255,77,79,0.10)" },
+  starting: { color: "#1677ff", bg: "rgba(22,119,255,0.10)", spin: true },
+  stopping: { color: "#1677ff", bg: "rgba(22,119,255,0.10)", spin: true },
 };
 
 function getStateMeta(state: string) {
@@ -114,9 +114,9 @@ export const AgentCard = memo(function AgentCard({
     setLocalError(agent.last_error);
   }, [agent.state, agent.last_error]);
 
-  // Poll during transient states
+  // Poll during transient states (local agents only — bridge shadows have no runtime status).
   useEffect(() => {
-    if (!TRANSIENT.has(localState)) {
+    if (agent.bridge || !TRANSIENT.has(localState)) {
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
       return;
@@ -142,10 +142,17 @@ export const AgentCard = memo(function AgentCard({
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
     };
-  }, [localState, agent.agent_id, onStateChange, onPollSettled, refreshAgents]);
+  }, [
+    localState,
+    agent.agent_id,
+    agent.bridge,
+    onStateChange,
+    onPollSettled,
+    refreshAgents,
+  ]);
 
   useEffect(() => {
-    if (localState !== "running") {
+    if (agent.bridge || localState !== "running") {
       setMemorySlimming(false);
       if (maintPollRef.current) {
         clearInterval(maintPollRef.current);
@@ -187,7 +194,7 @@ export const AgentCard = memo(function AgentCard({
         maintPollRef.current = null;
       }
     };
-  }, [localState, agent.agent_id]);
+  }, [localState, agent.agent_id, agent.bridge]);
 
   const isTransient = TRANSIENT.has(localState);
   const switchChecked = localState === "running" || localState === "starting";
@@ -279,6 +286,7 @@ export const AgentCard = memo(function AgentCard({
   const chatReady = isAgentChatReady(localState);
   const sharedViewer = isSharedExpertViewer(agent);
   const isOwner = agent.is_owner !== false;
+  const deleteConfirm = expertDeleteConfirm(agent, t);
 
   return (
     <>
@@ -314,6 +322,7 @@ export const AgentCard = memo(function AgentCard({
                     : t("experts.share.badge")}
                 </Tag>
               )}
+              <RemoteExpertHint agent={agent} />
             </div>
             <div className={styles.agentCardIdRow}>
               <Tooltip title={t("experts.copyAgentId")}>
@@ -340,7 +349,6 @@ export const AgentCard = memo(function AgentCard({
                 <span
                   className={meta.spin ? styles.stateDotSpin : styles.stateDot2}
                   style={!meta.spin ? { background: meta.color } : undefined}
-                  aria-hidden
                 />
                 {formatAgentState(localState, t)}
               </div>
@@ -444,8 +452,8 @@ export const AgentCard = memo(function AgentCard({
               </Tooltip>
 
               <Popconfirm
-                title={t("experts.confirmDelete", { name: agent.name })}
-                description={t("experts.confirmDeleteHint")}
+                title={deleteConfirm.title}
+                description={deleteConfirm.description}
                 onConfirm={() => void handleDelete()}
                 okText={t("common.delete", "Delete")}
                 cancelText={t("common.cancel")}

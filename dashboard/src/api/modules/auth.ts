@@ -1,4 +1,9 @@
-import { clearSetupRequired, markSetupRequired, request } from "../request";
+import {
+  clearSetupRequired,
+  markSetupRequired,
+  request,
+  requestUpload,
+} from "../request";
 
 /**
  * Auth + setup module — adapted to octop's multi-user backend.
@@ -30,6 +35,8 @@ export interface AuthStatus {
   wizard_password_exists: boolean;
   /** When false, the wizard skips the CLI bootstrap password step. */
   wizard_password_required: boolean;
+  /** Absolute path to the one-time bootstrap password file on the server. */
+  wizard_password_path?: string;
   /** True after `/setup/database` has bound the control-plane pool. */
   database_bound: boolean;
   /** Active control-plane driver when bound (`sqlite` | `postgresql`). */
@@ -43,7 +50,8 @@ export interface SsoIdentity {
 export interface OctopUser {
   id: number;
   username: string;
-  role: "admin" | "user";
+  /** Role-template public id: admin | user | custom ULID. */
+  role: string;
   display_name: string | null;
   locale: string;
   /** Module permission keys; admin responses include the full catalog. */
@@ -53,6 +61,10 @@ export interface OctopUser {
   /** Linked SSO providers (multi-identity). */
   sso_identities?: SsoIdentity[];
   has_password?: boolean;
+  /** Preset character id. Empty means the built-in default portrait. */
+  avatar_icon?: string | null;
+  /** Uploaded portrait. Shown ahead of the preset when present. */
+  avatar_url?: string | null;
 }
 
 export interface LoginResponse {
@@ -84,6 +96,12 @@ export interface OauthStatus {
   providers: OauthProviderStatus[];
 }
 
+/** Public LDAP login availability probe (no auth required). */
+export interface LdapStatus {
+  enabled: boolean;
+  display_name: string;
+}
+
 export interface SetupBody {
   username: string;
   password: string;
@@ -94,6 +112,7 @@ interface RawSetupStatus {
   setup_required: boolean;
   wizard_password_required?: boolean;
   wizard_password_exists?: boolean;
+  wizard_password_path?: string;
   database_bound?: boolean;
   database_driver?: string | null;
 }
@@ -137,6 +156,7 @@ export const authApi = {
           has_password: true,
           wizard_password_exists: raw.wizard_password_exists ?? false,
           wizard_password_required: raw.wizard_password_required ?? true,
+          wizard_password_path: raw.wizard_password_path,
           database_bound: raw.database_bound ?? false,
           database_driver: raw.database_driver ?? null,
         };
@@ -189,6 +209,9 @@ export const authApi = {
 
   /** Return enabled dashboard SSO providers for the login page. */
   getOauthStatus: () => request<OauthStatus>("/auth/oauth/status"),
+
+  /** Return whether directory (LDAP) logins are available, and its label. */
+  getLdapStatus: () => request<LdapStatus>("/auth/ldap/status"),
 
   /** Start an OIDC authorization-code login flow. */
   startOidc: (redirect_after?: string) =>
@@ -250,6 +273,24 @@ export const authApi = {
       method: "PATCH",
       body: JSON.stringify({ display_name: displayName }),
     }),
+
+  /** Choose a preset icon. Null restores the built-in default and clears an upload. */
+  setAvatarIcon: (icon: string | null) =>
+    request<OctopUser>("/auth/me", {
+      method: "PATCH",
+      body: JSON.stringify({ avatar_icon: icon }),
+    }),
+
+  uploadAvatar: (file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return requestUpload<{ avatar_url: string | null }>(
+      "/auth/me/avatar",
+      body,
+    );
+  },
+
+  deleteAvatar: () => request<void>("/auth/me/avatar", { method: "DELETE" }),
 
   // --- Legacy stubs kept so finnie-era components compile ----------------
   // These call paths are removed in octop's data model; the actual

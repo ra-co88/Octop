@@ -28,6 +28,11 @@ import { isAgentChatReady } from "../../../utils/agentError";
 import { useAgentFormResources } from "../../../hooks/useAgentFormResources";
 import { octopAgentsApi } from "../../../api/modules/octopAgents";
 import { useAgent, type OctopAgent } from "../../../context/AgentContext";
+import {
+  CONVERSATION_MODES,
+  parseConversationMode,
+  type ConversationMode,
+} from "../../Chat/utils/conversationMode";
 import ExpertAvatarPicker from "./ExpertAvatarPicker";
 import WorkspaceDrawer from "../../Agent/Workspace/components/WorkspaceDrawer";
 import {
@@ -49,6 +54,8 @@ import {
   omitAgentRuntimeConfig,
   readAgentRuntimeFormValues,
 } from "../../../utils/agentRuntimeConfig";
+import { isBridgeAgentId } from "../../../utils/remoteExpert";
+import EditExpertDrawerTitle from "./EditExpertDrawerTitle";
 import { useSkillDisplayName } from "../../Agent/Skills/skillDisplayNames";
 import { DEFAULT_SKILL_EMOJI } from "../../Agent/Skills/skillMarkdown";
 import FileEditModal from "./FileEditModal";
@@ -132,6 +139,7 @@ interface EditFormValues {
   welcome_message?: string;
   is_shared?: boolean;
   default_model: string;
+  conversation_mode: ConversationMode;
   backend_choice: string;
   composite_default: string;
   root_dir?: string;
@@ -229,8 +237,9 @@ function EditAgentDrawerBody({
   const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
   const [agentSkills, setAgentSkills] = useState<SkillSummary[]>([]);
   const [agentSubagents, setAgentSubagents] = useState<SubagentSummary[]>([]);
+  const remote = Boolean(agent.bridge) || isBridgeAgentId(agent.agent_id);
   const { models, modelsLoading, backends, backendsLoading } =
-    useAgentFormResources(true);
+    useAgentFormResources(true, agent.agent_id);
   const [pathMappings, setPathMappings] = useState<PathMapping[]>([]);
   const [agentConfig, setAgentConfig] = useState<Record<string, unknown>>({});
   const [colorPalette, setColorPalette] = useState<string>(
@@ -241,7 +250,6 @@ function EditAgentDrawerBody({
   const [loading, setLoading] = useState(false);
   const [filesLoading, setFilesLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const savingRef = useRef(false);
   const [fileModalOpen, setFileModalOpen] = useState(false);
   const [editingFile, setEditingFile] = useState<string | null>(null);
   const [listRenameOpen, setListRenameOpen] = useState(false);
@@ -308,6 +316,7 @@ function EditAgentDrawerBody({
             typeof ag.welcome_message === "string" ? ag.welcome_message : "",
           is_shared: agent.is_shared ?? false,
           default_model: defaultModelToForm(ag.default_model),
+          conversation_mode: parseConversationMode(cfg.conversation_mode),
           backend_choice: parsedBackend.backendChoice,
           composite_default: parsedBackend.compositeDefault,
           root_dir: parsedBackend.rootDir,
@@ -383,41 +392,39 @@ function EditAgentDrawerBody({
   }, [agent.agent_id, agent.state, form, message, t]);
 
   const handleSave = useCallback(async () => {
-    // FE-5: setSaving only applies after a re-render, so a fast double-click
-    // runs two concurrent saves. A synchronous ref guard closes the window
-    // (same pattern as Observability/index.tsx).
-    if (savingRef.current) return;
-    savingRef.current = true;
+    const values = await form.validateFields();
+    if (values.backend_choice === "composite") {
+      const pathError = validatePathMappings(pathMappings, t);
+      if (pathError) {
+        message.error(pathError);
+        return;
+      }
+    }
+    if (!remote && shouldProbeRootDir(values.backend_choice, values.root_dir)) {
+      const probe = await probeRootDir(values.root_dir ?? "/");
+      if (!probe.ok) {
+        message.error(
+          `${rootDirProbeMessage(probe, t)}\n${t(
+            "experts.rootDirProbe.guidance",
+          )}`,
+        );
+        return;
+      }
+    }
     setSaving(true);
+    let bwrapToast: { kind: "success" | "warning"; text: string } | null = null;
     try {
-      const values = await form.validateFields();
-      if (values.backend_choice === "composite") {
-        const pathError = validatePathMappings(pathMappings, t);
-        if (pathError) {
-          message.error(pathError);
-          return;
-        }
-      }
-      if (shouldProbeRootDir(values.backend_choice, values.root_dir)) {
-        const probe = await probeRootDir(values.root_dir ?? "/");
-        if (!probe.ok) {
-          message.error(
-            `${rootDirProbeMessage(probe, t)}\n${t(
-              "experts.rootDirProbe.guidance",
-            )}`,
-          );
-          return;
-        }
-      }
-      let bwrapToast: { kind: "success" | "warning"; text: string } | null =
-        null;
-      if (shouldProbeRootDir(values.backend_choice, values.root_dir)) {
+      if (
+        !remote &&
+        shouldProbeRootDir(values.backend_choice, values.root_dir)
+      ) {
         const bwrap = await ensureBubblewrapAfterProbe();
         const kind = ensureBwrapToastKind(bwrap.status);
         if (kind !== "none") {
           bwrapToast = { kind, text: ensureBwrapMessage(bwrap, t) };
         }
       }
+
       const backendSpec = buildBackendSpec(
         values.backend_choice,
         values.composite_default ?? DEFAULT_BACKEND,
@@ -432,6 +439,7 @@ function EditAgentDrawerBody({
         ...agentConfig,
         backend: backendSpec,
         enable_trajectory: values.enable_trajectory === true,
+        conversation_mode: values.conversation_mode,
       });
       delete nextConfig.color;
       delete nextConfig.icon_name;
@@ -485,7 +493,7 @@ function EditAgentDrawerBody({
         }),
       });
 
-      if (!skillPackagesSupported) {
+      if (!remote && !skillPackagesSupported) {
         try {
           await skillPackagesApi.replaceMounted(agent.agent_id, []);
         } catch (pkgErr) {
@@ -515,13 +523,13 @@ function EditAgentDrawerBody({
     } catch (err) {
       message.error(apiErrorMessage(err, t("experts.patchFailed"), t));
     } finally {
-      savingRef.current = false;
       setSaving(false);
     }
   }, [
     agent.agent_id,
     agent.state,
     agentConfig,
+    remote,
     colorPalette,
     form,
     iconUrl,
@@ -703,6 +711,14 @@ function EditAgentDrawerBody({
         </div>
       ) : (
         <>
+          {remote ? (
+            <Alert
+              type="info"
+              showIcon
+              message={t("chat.remoteExpert.editBanner")}
+              style={{ marginBottom: 16 }}
+            />
+          ) : null}
           <div className={styles.drawerSection} style={{ marginBottom: 0 }}>
             <div className={styles.drawerSectionTitle}>
               {t("experts.basicInfo")}
@@ -806,6 +822,18 @@ function EditAgentDrawerBody({
                 <Switch />
               </Form.Item>
               <Form.Item
+                name="conversation_mode"
+                label={t("experts.defaultModeLabel")}
+                tooltip={t("experts.defaultModeHint")}
+              >
+                <Select
+                  options={CONVERSATION_MODES.map((mode) => ({
+                    value: mode,
+                    label: t(`chat.conversationMode.${mode}`),
+                  }))}
+                />
+              </Form.Item>
+              <Form.Item
                 name="default_model"
                 label={t("experts.defaultModelLabel")}
               >
@@ -832,12 +860,13 @@ function EditAgentDrawerBody({
                 pathMappings={pathMappings}
                 rootDirMode="edit"
                 disabled
+                skipHostFilesystem={remote}
                 onAddPathMapping={addPathMapping}
                 onRemovePathMapping={removePathMapping}
                 onUpdatePathMapping={updatePathMapping}
               />
               <AgentTrajectoryField />
-              <ExpertComposerDefaultsFields />
+              <ExpertComposerDefaultsFields agentId={agent.agent_id} />
               {!skillPackagesSupported ? (
                 <Alert
                   type="info"
@@ -1314,7 +1343,6 @@ function EditAgentDrawerBody({
           value={listRenameValue}
           onChange={(e) => setListRenameValue(e.target.value)}
           onPressEnter={() => void confirmListRename()}
-          disabled={listRenameSaving}
           autoFocus
         />
       </Modal>
@@ -1348,7 +1376,7 @@ export default function EditAgentDrawer({
   return (
     <Drawer
       open={open}
-      title={t("experts.editExpert")}
+      title={<EditExpertDrawerTitle agent={agent} />}
       width={520}
       onClose={onClose}
       destroyOnHidden

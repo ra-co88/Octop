@@ -1,10 +1,11 @@
 // dashboard/src/pages/Experts/components/FileEditModal.tsx
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Drawer, Modal, Spin } from "antd";
+import { Button, Drawer, Spin } from "antd";
 import { message } from "@/utils/antdMessage";
 
 import { request } from "../../../api/request";
+import { useTheme } from "../../../context/ThemeContext";
 import { withFromWorkspace } from "../../../utils/fromWorkspace";
 
 const MonacoEditor = lazy(() => import("@monaco-editor/react"));
@@ -36,28 +37,10 @@ export default function FileEditModal({
   onLocalSave,
 }: FileEditModalProps) {
   const { t } = useTranslation();
+  const { isDark } = useTheme();
   const [value, setValue] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
-  const [confirmClose, setConfirmClose] = useState(false);
-
-  useEffect(() => {
-    if (!open) {
-      setDirty(false);
-      setConfirmClose(false);
-    }
-  }, [open]);
-
-  const requestClose = () => {
-    // FE-2: silently discarding edits loses work with no confirm, no toast,
-    // no undo — ask before closing whenever the editor is dirty.
-    if (dirty && !saving) {
-      setConfirmClose(true);
-      return;
-    }
-    onClose();
-  };
 
   useEffect(() => {
     if (!open || !filePath) return;
@@ -81,19 +64,8 @@ export default function FileEditModal({
       .then((data) => {
         if (!cancelled) setValue(data.content ?? "");
       })
-      .catch((err: unknown) => {
-        // FE-2: an empty editor pre-filled on failure lets a save overwrite
-        // the real file. Show the error and leave the editor empty-but-clean
-        // so the user must explicitly re-load before saving.
-        if (!cancelled) {
-          setValue("");
-          message.error(
-            (err instanceof Error ? err.message : String(err)) ||
-              t("experts.fileLoadFailed", {
-                filename: filePath.replace(/^\//, ""),
-              }),
-          );
-        }
+      .catch(() => {
+        if (!cancelled) setValue("");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -146,7 +118,7 @@ export default function FileEditModal({
       placement="right"
       title={title}
       width={fileEditDrawerWidth()}
-      onClose={requestClose}
+      onClose={onClose}
       destroyOnHidden
       styles={{
         body: {
@@ -165,7 +137,7 @@ export default function FileEditModal({
             gap: 8,
           }}
         >
-          <Button onClick={requestClose} disabled={saving}>
+          <Button onClick={onClose} disabled={saving}>
             {t("common.cancel")}
           </Button>
           <Button
@@ -210,11 +182,9 @@ export default function FileEditModal({
             <MonacoEditor
               height="100%"
               language="markdown"
+              theme={isDark ? "vs-dark" : "light"}
               value={value}
-              onChange={(v) => {
-                setValue(v ?? "");
-                setDirty(true);
-              }}
+              onChange={(v) => setValue(v ?? "")}
               options={{
                 minimap: { enabled: false },
                 wordWrap: "on",
@@ -226,29 +196,6 @@ export default function FileEditModal({
           </div>
         </Suspense>
       )}
-      <Modal
-        open={confirmClose}
-        title={t("experts.unsavedChangesTitle")}
-        onCancel={() => setConfirmClose(false)}
-        footer={[
-          <Button key="cancel" onClick={() => setConfirmClose(false)}>
-            {t("experts.unsavedChangesKeepEditing")}
-          </Button>,
-          <Button
-            key="discard"
-            danger
-            onClick={() => {
-              setConfirmClose(false);
-              setDirty(false);
-              onClose();
-            }}
-          >
-            {t("experts.unsavedChangesDiscard")}
-          </Button>,
-        ]}
-      >
-        <p>{t("experts.unsavedChangesBody")}</p>
-      </Modal>
     </Drawer>
   );
 }

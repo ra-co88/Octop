@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, Divider, Drawer, Form, Input, Select, Typography } from "antd";
+import {
+  Button,
+  Divider,
+  Drawer,
+  Form,
+  Input,
+  Select,
+  Switch,
+  Typography,
+} from "antd";
 import { message } from "@/utils/antdMessage";
 
 import { Activity, Mic2, Check, Settings2 } from "lucide-react";
@@ -37,6 +46,8 @@ export function VoiceSettingsPanel() {
   const [apiKey, setApiKey] = useState("");
   const [secretId, setSecretId] = useState("");
   const [secretKey, setSecretKey] = useState("");
+  const [realtimeStt, setRealtimeStt] = useState(false);
+  const [appId, setAppId] = useState("");
   const [mimoEndpoint, setMimoEndpoint] = useState<"payg" | "tokenplan">(
     "payg",
   );
@@ -97,13 +108,12 @@ export function VoiceSettingsPanel() {
   const openConfigure = (preset: VoicePreset) => {
     const existing = findConfigured(preset);
     setConfigure({ preset, existing });
-    // SEC-4 decision (a): the stored key is masked in API responses, so it
-    // must not be prefilled (the user would silently round-trip the mask).
-    // Leave the field empty; the PATCH path treats null as "keep existing".
-    setApiKey("");
+    setApiKey(existing?.api_key ?? "");
     const extra = existing?.extra ?? {};
     setSecretId(String(extra.secret_id ?? ""));
     setSecretKey(String(extra.secret_key ?? ""));
+    setRealtimeStt(extra.realtime_stt === true);
+    setAppId(String(extra.app_id ?? ""));
     setMimoEndpoint(extra.endpoint_type === "tokenplan" ? "tokenplan" : "payg");
     setMimoVoiceId(String(extra.voice_id ?? "冰糖"));
   };
@@ -118,6 +128,8 @@ export function VoiceSettingsPanel() {
         secret_id: secretId,
         secret_key: secretKey,
         region: "ap-guangzhou",
+        realtime_stt: realtimeStt,
+        app_id: appId.trim() || undefined,
       };
     } else if (preset.kind === "edge") {
       extra = { voice_id: "zh-CN-XiaoxiaoNeural" };
@@ -143,10 +155,7 @@ export function VoiceSettingsPanel() {
           ? secretId && secretKey
             ? `${secretId}:${secretKey}`
             : null
-          : // SEC-4 decision (a): empty field means "keep existing" — the
-            // server's partial update skips null api_key, so the stored key
-            // survives a re-save untouched.
-            apiKey || null,
+          : apiKey || null,
       extra_json: JSON.stringify(extra),
     };
   };
@@ -158,6 +167,10 @@ export function VoiceSettingsPanel() {
         ? Boolean(secretId.trim() && secretKey.trim())
         : Boolean(apiKey.trim());
     if (!complete) message.warning(t("voice.credentialsRequired"));
+    if (complete && realtimeStt && !appId.trim()) {
+      message.warning(t("voice.realtimeAppIdRequired"));
+      return false;
+    }
     return complete;
   };
 
@@ -198,6 +211,9 @@ export function VoiceSettingsPanel() {
       } else {
         await voiceApi.createProvider(payload);
       }
+      // The active payload carries `stt_realtime`, so drop the cache even when
+      // the active provider itself does not change (e.g. the switch was toggled).
+      invalidateVoiceConfigCache();
       if (
         preset.kind !== "browser" &&
         (preset.capability === "stt" || preset.capability === "both") &&
@@ -205,7 +221,6 @@ export function VoiceSettingsPanel() {
       ) {
         const next = await voiceApi.setActive({ stt: preset.id });
         setActive(next);
-        invalidateVoiceConfigCache();
       }
       if (
         preset.kind !== "browser" &&
@@ -214,7 +229,6 @@ export function VoiceSettingsPanel() {
       ) {
         const next = await voiceApi.setActive({ tts: preset.id });
         setActive(next);
-        invalidateVoiceConfigCache();
       }
       message.success(t("voice.saved"));
       setConfigure(null);
@@ -425,6 +439,26 @@ export function VoiceSettingsPanel() {
                   onChange={(e) => setSecretKey(e.target.value)}
                 />
               </Form.Item>
+              <Form.Item
+                label={t("voice.realtimeStt")}
+                style={{ marginBottom: 8 }}
+              >
+                <Switch checked={realtimeStt} onChange={setRealtimeStt} />
+              </Form.Item>
+              <Form.Item label="AppID" required={realtimeStt}>
+                <Input
+                  placeholder="1300000000"
+                  value={appId}
+                  disabled={!realtimeStt}
+                  inputMode="numeric"
+                  onChange={(e) => setAppId(e.target.value)}
+                />
+              </Form.Item>
+              {realtimeStt && (
+                <div className={styles.drawerHint}>
+                  {t("voice.realtimeSttHint")}
+                </div>
+              )}
             </>
           )}
           {configure?.preset.kind === "openai" && (

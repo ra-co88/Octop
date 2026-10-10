@@ -33,19 +33,23 @@ import {
   isAgentModelConfigError,
 } from "../../../utils/agentError";
 import { TEAM_ICON_NAME, teamPortraitUrl } from "../../../utils/teamAgent";
+import RemoteExpertHint from "../../Chat/components/RemoteExpertHint";
+import {
+  expertDeleteConfirm,
+  isRemoteShadowAgent,
+} from "../../../utils/remoteExpert";
 import styles from "../index.module.less";
 
 const STATE_META: Record<
   string,
   { color: string; bg: string; spin?: boolean }
 > = {
-  /* Colour-blind-safe state palette (audit A11Y-6) — mirrors AgentCard. */
-  running: { color: "#047857", bg: "rgba(4,120,87,0.12)" },
-  stopped: { color: "#6b7280", bg: "rgba(107,114,128,0.10)" },
-  created: { color: "#6b7280", bg: "rgba(107,114,128,0.10)" },
-  failed: { color: "#b91c1c", bg: "rgba(185,28,28,0.10)" },
-  starting: { color: "#1d4ed8", bg: "rgba(29,78,216,0.10)", spin: true },
-  stopping: { color: "#1d4ed8", bg: "rgba(29,78,216,0.10)", spin: true },
+  running: { color: "#52c41a", bg: "rgba(82,196,26,0.12)" },
+  stopped: { color: "#8c8c8c", bg: "rgba(140,140,140,0.10)" },
+  created: { color: "#8c8c8c", bg: "rgba(140,140,140,0.10)" },
+  failed: { color: "#ff4d4f", bg: "rgba(255,77,79,0.10)" },
+  starting: { color: "#1677ff", bg: "rgba(22,119,255,0.10)", spin: true },
+  stopping: { color: "#1677ff", bg: "rgba(22,119,255,0.10)", spin: true },
 };
 
 function getStateMeta(state: string) {
@@ -122,8 +126,9 @@ export const TeamCard = memo(function TeamCard({
     setLocalError(agent.last_error);
   }, [agent.state, agent.last_error]);
 
+  // Poll during transient states (local agents only — bridge shadows have no runtime status).
   useEffect(() => {
-    if (!TRANSIENT.has(localState)) {
+    if (agent.bridge || !TRANSIENT.has(localState)) {
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
       return;
@@ -148,11 +153,13 @@ export const TeamCard = memo(function TeamCard({
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
     };
-  }, [localState, agent.agent_id, onStateChange, refreshAgents]);
+  }, [localState, agent.agent_id, agent.bridge, onStateChange, refreshAgents]);
 
   const isTransient = TRANSIENT.has(localState);
   const switchChecked = localState === "running" || localState === "starting";
   const chatReady = isAgentChatReady(localState);
+  const isOwner = agent.is_owner !== false;
+  const deleteConfirm = expertDeleteConfirm(agent, t);
   const meta = getStateMeta(localState);
   const friendlyError = formatAgentError(localError, t);
 
@@ -186,13 +193,17 @@ export const TeamCard = memo(function TeamCard({
 
   const handleDelete = useCallback(async () => {
     try {
-      await teamsApi.remove(agent.agent_id);
+      if (isRemoteShadowAgent(agent)) {
+        await request(`/agents/${agent.agent_id}`, { method: "DELETE" });
+      } else {
+        await teamsApi.remove(agent.agent_id);
+      }
       message.success(t("experts.agentDeleted", { name: agent.name }));
       onDeleted(agent.agent_id);
     } catch {
       message.error(t("experts.agentDeleteFailed"));
     }
-  }, [agent.agent_id, agent.name, t, onDeleted]);
+  }, [agent, t, onDeleted]);
 
   const handleReload = useCallback(async () => {
     setActionLoading(true);
@@ -230,13 +241,14 @@ export const TeamCard = memo(function TeamCard({
                 <Users size={10} strokeWidth={2.4} aria-hidden />
                 {t("chat.teamBadge")}
               </span>
+              <RemoteExpertHint agent={agent} />
               <Tooltip title={formatAgentState(localState, t)}>
                 <span
                   className={
                     meta.spin ? styles.stateDotSpin : styles.teamCardStateDot
                   }
                   style={!meta.spin ? { background: meta.color } : undefined}
-                  aria-hidden
+                  aria-label={formatAgentState(localState, t)}
                 />
               </Tooltip>
             </div>
@@ -360,24 +372,29 @@ export const TeamCard = memo(function TeamCard({
             </button>
           </Tooltip>
 
-          <Popconfirm
-            title={t("experts.confirmDelete", { name: agent.name })}
-            description={t("experts.confirmDeleteHint")}
-            onConfirm={() => void handleDelete()}
-            okText={t("common.delete", "Delete")}
-            cancelText={t("common.cancel")}
-            okButtonProps={{ danger: true }}
-          >
-            <Tooltip title={t("common.delete", "Delete")} mouseEnterDelay={0.5}>
-              <button
-                type="button"
-                className={styles.agentCard2DelBtn}
-                aria-label={t("common.delete", "Delete")}
+          {isOwner ? (
+            <Popconfirm
+              title={deleteConfirm.title}
+              description={deleteConfirm.description}
+              onConfirm={() => void handleDelete()}
+              okText={t("common.delete", "Delete")}
+              cancelText={t("common.cancel")}
+              okButtonProps={{ danger: true }}
+            >
+              <Tooltip
+                title={t("common.delete", "Delete")}
+                mouseEnterDelay={0.5}
               >
-                <Trash2 size={13} />
-              </button>
-            </Tooltip>
-          </Popconfirm>
+                <button
+                  type="button"
+                  className={styles.agentCard2DelBtn}
+                  aria-label={t("common.delete", "Delete")}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </Tooltip>
+            </Popconfirm>
+          ) : null}
 
           <Dropdown
             menu={{

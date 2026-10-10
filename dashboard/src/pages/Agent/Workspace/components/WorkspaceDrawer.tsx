@@ -4,7 +4,7 @@
  * without modifying the global active-agent selection.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   App,
   Tree,
@@ -47,12 +47,15 @@ import { workspaceApi } from "../../../../api/modules/workspace";
 import { useAgent } from "../../../../context/AgentContext";
 import { useIsMobile } from "../../../../hooks/useIsMobile";
 import { useHorizontalResize } from "../../../../hooks/useHorizontalResize";
+import { useListPanelCollapsed } from "../../../../hooks/useListPanelCollapsed";
 import { useServerTimezone } from "../../../../hooks/useServerTimezone";
 import { formatServerIsoDateTime } from "../../../../utils/formatMessageTime";
 import { isAgentChatReady } from "../../../../utils/agentError";
 import { apiErrorMessage } from "../../../../utils/apiError";
+import { saveBlobAsFile } from "../../../../utils/saveBlobAsFile";
 import AgentNotReadyScreen from "../../../Chat/components/AgentNotReadyScreen";
 import { fileTreeIcon } from "../../../../utils/fileTreeIcon";
+import { dedupeFileTreeInfos } from "../../../../utils/fileTreeNodes";
 import { workspaceEntryPath } from "../../../../utils/workspacePath";
 import FileViewer from "./FileViewer";
 import {
@@ -199,20 +202,8 @@ function joinPath(dir: string, name: string): string {
   return `${base}/${name}`;
 }
 
-function toTreeNodes(infos: FileInfo[]): TreeDataNode[] {
-  const sorted = [...infos].sort((a, b) => {
-    const ad = a.is_dir ? 0 : 1;
-    const bd = b.is_dir ? 0 : 1;
-    if (ad !== bd) return ad - bd;
-    const an = (
-      a.path.split("/").filter(Boolean).pop() || a.path
-    ).toLowerCase();
-    const bn = (
-      b.path.split("/").filter(Boolean).pop() || b.path
-    ).toLowerCase();
-    return an.localeCompare(bn);
-  });
-  return sorted.map((info) => {
+function toTreeNodes(infos: FileInfo[], listedPath?: string): TreeDataNode[] {
+  return dedupeFileTreeInfos(infos, listedPath).map((info) => {
     const fullPath = workspaceEntryPath(info.path);
     const fname = fullPath.split("/").filter(Boolean).pop() || fullPath;
     const key = nodeKey({ path: fullPath, is_dir: !!info.is_dir });
@@ -276,11 +267,6 @@ export default function WorkspaceDrawer({
   const [editMode, setEditMode] = useState(false);
   const [fileLoading, setFileLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  // Guards against the stale-response race (audit RACE-1): a slow read for
-  // file A must never populate the editor after the user has switched to B,
-  // and save must refuse to write content loaded for a different path.
-  const loadedPathRef = useRef<string | null>(null);
-  const fetchSeqRef = useRef(0);
   const [previewMode, setPreviewMode] = useState(true);
   const [archiveExporting, setArchiveExporting] = useState(false);
   const [archiveImportOpen, setArchiveImportOpen] = useState(false);
@@ -305,27 +291,13 @@ export default function WorkspaceDrawer({
   const [expandedKeys, setExpandedKeys] = useState<string[]>([
     workspaceRootKey(),
   ]);
-  const [treeCollapsed, setTreeCollapsed] = useState(() => {
-    try {
-      return localStorage.getItem(TREE_COLLAPSED_KEY) === "1";
-    } catch {
-      return false;
-    }
-  });
+  const { collapsed: treeCollapsed, toggle: toggleTreeCollapsed } =
+    useListPanelCollapsed(TREE_COLLAPSED_KEY, {
+      // Chat dock (embedded) starts with the folder tree hidden.
+      defaultCollapsed: embedded,
+    });
 
   const rootLabel = t("workspace.root", "工作区");
-
-  const toggleTreeCollapsed = useCallback(() => {
-    setTreeCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(TREE_COLLAPSED_KEY, next ? "1" : "0");
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
-  }, []);
 
   const { size: treeWidth, onResizeStart } = useHorizontalResize({
     min: 180,
@@ -357,14 +329,16 @@ export default function WorkspaceDrawer({
         const data = await request<FileInfo[]>(
           withFromWorkspace(`/agents/${agentId}/workspace/tree?path=/`),
         );
-        setTreeData([buildWorkspaceRootNode(toTreeNodes(data))]);
+        setTreeData([
+          buildWorkspaceRootNode(toTreeNodes(data, WORKSPACE_ROOT_PATH)),
+        ]);
         setExpandedKeys([workspaceRootKey()]);
         if (opts?.activateRoot) {
           setSelectedKey(workspaceRootKey());
           setEditMode(false);
           setPreviewMode(false);
           setContent("");
-          setDirEntries(data);
+          setDirEntries(dedupeFileTreeInfos(data, WORKSPACE_ROOT_PATH));
           setDirLoading(false);
           if (isMobile) setMobilePane("viewer");
         }
@@ -385,8 +359,6 @@ export default function WorkspaceDrawer({
     setTreeData([]);
     setSelectedKey(null);
     setContent("");
-    loadedPathRef.current = null;
-    fetchSeqRef.current += 1;
     setEditMode(false);
     setMobilePane("tree");
     setDirEntries([]);
@@ -406,7 +378,7 @@ export default function WorkspaceDrawer({
           `/agents/${agentId}/workspace/tree?path=${encodeURIComponent(path)}`,
         ),
       );
-      const children = toTreeNodes(data);
+      const children = toTreeNodes(data, path);
       const replace = (nodes: TreeDataNode[]): TreeDataNode[] =>
         nodes.map((n) =>
           n.key === node.key
@@ -440,7 +412,7 @@ export default function WorkspaceDrawer({
             )}`,
           ),
         );
-        const children = toTreeNodes(data);
+        const children = toTreeNodes(data, dirPath);
         const replace = (nodes: TreeDataNode[]): TreeDataNode[] =>
           nodes.map((n) =>
             n.key === dirKey
@@ -472,7 +444,7 @@ export default function WorkspaceDrawer({
             )}`,
           ),
         );
-        setDirEntries(data);
+        setDirEntries(dedupeFileTreeInfos(data, dirPath));
       } catch (err: unknown) {
         message.error(
           (err instanceof Error ? err.message : String(err)) ||
@@ -495,8 +467,6 @@ export default function WorkspaceDrawer({
       if (selectedKey === nodeKey(target)) {
         setSelectedKey(null);
         setContent("");
-        loadedPathRef.current = null;
-        fetchSeqRef.current += 1;
         setDirEntries([]);
       }
       await reloadBranch(parentDir(target.path));
@@ -564,7 +534,6 @@ export default function WorkspaceDrawer({
         if (isMobile) setMobilePane("viewer");
         if (!getMediaKind(dest) && isProbablyText(dest)) {
           setFileLoading(true);
-          const seq = ++fetchSeqRef.current;
           try {
             const r = await request<{ content: string }>(
               withFromWorkspace(
@@ -573,11 +542,9 @@ export default function WorkspaceDrawer({
                 )}`,
               ),
             );
-            if (seq !== fetchSeqRef.current) return;
-            loadedPathRef.current = dest;
             setContent(r.content);
           } finally {
-            if (seq === fetchSeqRef.current) setFileLoading(false);
+            setFileLoading(false);
           }
         }
       }
@@ -775,9 +742,6 @@ export default function WorkspaceDrawer({
     setEditMode(false);
     setPreviewMode(is_dir ? false : defaultPreviewMode(path));
     setContent("");
-    // Any new selection invalidates in-flight reads and the save binding.
-    loadedPathRef.current = null;
-    fetchSeqRef.current += 1;
     if (is_dir) {
       setDirEntries([]);
       if (isMobile) setMobilePane("viewer");
@@ -789,25 +753,20 @@ export default function WorkspaceDrawer({
     if (getMediaKind(path)) return;
     if (!isProbablyText(path)) return;
     setFileLoading(true);
-    const seq = ++fetchSeqRef.current;
     try {
       const r = await request<{ content: string }>(
         withFromWorkspace(
           `/agents/${agentId}/workspace/file?path=${encodeURIComponent(path)}`,
         ),
       );
-      if (seq !== fetchSeqRef.current) return;
-      loadedPathRef.current = path;
       setContent(r.content);
     } catch (err: unknown) {
-      if (seq === fetchSeqRef.current) {
-        message.error(
-          (err instanceof Error ? err.message : String(err)) ||
-            t("workspace.readFailed", "读取失败"),
-        );
-      }
+      message.error(
+        (err instanceof Error ? err.message : String(err)) ||
+          t("workspace.readFailed", "读取失败"),
+      );
     } finally {
-      if (seq === fetchSeqRef.current) setFileLoading(false);
+      setFileLoading(false);
     }
   };
 
@@ -925,39 +884,27 @@ export default function WorkspaceDrawer({
       return;
     }
     setFileLoading(true);
-    const seq = ++fetchSeqRef.current;
     try {
       const r = await request<{ content: string }>(
         withFromWorkspace(
           `/agents/${agentId}/workspace/doc?path=${encodeURIComponent(path)}`,
         ),
       );
-      if (seq !== fetchSeqRef.current) return;
-      loadedPathRef.current = path;
       setContent(r.content);
       setEditMode(true);
     } catch (err: unknown) {
-      if (seq === fetchSeqRef.current) {
-        message.error(
-          (err instanceof Error ? err.message : String(err)) ||
-            t("workspace.readFailed", "读取失败"),
-        );
-      }
+      message.error(
+        (err instanceof Error ? err.message : String(err)) ||
+          t("workspace.readFailed", "读取失败"),
+      );
     } finally {
-      if (seq === fetchSeqRef.current) setFileLoading(false);
+      setFileLoading(false);
     }
   };
 
   const save = async () => {
     if (!agentId || !selectedKey) return;
     const { path } = pathFromKey(selectedKey);
-    // RACE-1 guard: never write editor content that was loaded for a
-    // different path (stale-response overwrite), or that never finished
-    // loading at all.
-    if (loadedPathRef.current !== path) {
-      message.error(t("workspace.readFailed", "读取失败"));
-      return;
-    }
     setSaving(true);
     try {
       if (isEditableDoc(path)) {
@@ -1006,11 +953,7 @@ export default function WorkspaceDrawer({
           )}`,
         ),
       );
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = path.split("/").pop() || "download";
-      a.click();
-      URL.revokeObjectURL(a.href);
+      await saveBlobAsFile(blob, path.split("/").pop() || "download");
     } catch (err: unknown) {
       message.error(
         (err instanceof Error ? err.message : String(err)) ||
@@ -1058,11 +1001,7 @@ export default function WorkspaceDrawer({
     setArchiveExporting(true);
     try {
       const blob = await workspaceApi.downloadWorkspaceArchive(agentId);
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `workspace-${agentId}.zip`;
-      a.click();
-      URL.revokeObjectURL(a.href);
+      await saveBlobAsFile(blob, `workspace-${agentId}.zip`);
       message.success(t("workspace.archiveExportSuccess"));
     } catch (err: unknown) {
       message.error(

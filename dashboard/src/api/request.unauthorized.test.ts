@@ -22,6 +22,7 @@ describe("401 handling", () => {
   beforeEach(async () => {
     vi.resetModules();
     localStorage.clear();
+    sessionStorage.clear();
     replace.mockClear();
     Object.defineProperty(window, "location", {
       configurable: true,
@@ -52,6 +53,24 @@ describe("401 handling", () => {
     await expect(mod.request("/agents")).rejects.toThrow();
 
     expect(replace).toHaveBeenCalledWith("/login");
+  });
+
+  it("redirects again after the user signs back in", async () => {
+    // First expiry navigates to the login screen.
+    await expect(mod.request("/agents")).rejects.toThrow();
+    expect(replace).toHaveBeenCalledWith("/login");
+
+    // The user authenticates again; the module now holds a usable token.
+    mod.setAuthToken("fresh-token");
+    expect(mod.getAuthToken()).toBe("fresh-token");
+
+    // A later expiry must navigate again. The latch exists to collapse a burst
+    // of parallel 401s into ONE navigation, not to disable the redirect for the
+    // rest of the session: a user who signs back in and then has their token
+    // expire again is otherwise left staring at failed requests forever.
+    await expect(mod.request("/agents")).rejects.toThrow();
+    expect(replace).toHaveBeenCalledTimes(2);
+    expect(replace).toHaveBeenLastCalledWith("/login");
   });
 
   it("redirects only once when several requests fail concurrently", async () => {
