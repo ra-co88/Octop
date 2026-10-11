@@ -627,6 +627,9 @@ async def test_file_url_bare_drive_netloc_is_not_rejected_as_host(env: Any) -> N
         params={"path": drive_url},
         headers=auth,
     )
-    # Not 403: a bare drive letter is the one netloc we accept. The host
-    # rejection must not fire on the shape Windows actually sends.
-    assert r.status_code != 403, (drive_url, r.text)
+    # A bare drive letter is the one netloc we accept, so the host rejection
+    # must not fire on the shape Windows actually sends. Assert on the reason,
+    # not the status: on Windows the path is host-absolute and the containment
+    # layer still denies it (404); on Linux it is workspace-relative (404).
+    assert "must not name a host" not in r.text, (drive_url, r.text)
+    assert r.status_code in (403, 404), (drive_url, r.status_code, r.text)

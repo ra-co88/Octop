@@ -241,7 +241,13 @@ async def read_file(
     """
     ws = await require_agent_workspace(agent_id, user=user, as_user=as_user, server=server)
     io_path = _safe_io_path(ws, path, from_workspace=False)
-    content = await ws.aread_text(io_path)
+    try:
+        content = await ws.aread_text(io_path)
+    except PermissionError as exc:
+        # The backend's own containment check can still deny a path that
+        # passed _safe_io_path (e.g. ``C:/Users/...`` on Windows). Map it like
+        # download_file/read_doc instead of letting it surface as a 500.
+        raise OctopError(ErrorCode.NOT_FOUND, f"cannot read {path!r}") from exc
     if content is None:
         raise OctopError(ErrorCode.NOT_FOUND, f"cannot read {path!r}")
     return {"path": path, "content": coerce_read_content(content)}
