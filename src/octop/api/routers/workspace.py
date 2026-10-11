@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+import urllib.parse
 from pathlib import Path
 from typing import Any, Literal
 
@@ -155,6 +156,24 @@ def _workspace_io_path(path: str, *, from_workspace: bool = False) -> str:
     """
     raw = path.strip()
     if raw.startswith("file://"):
+        # A file:// URL must not carry a host. `urlparse` puts the drive letter
+        # in netloc for the two-slash form Windows clients send
+        # (`file://C:/…` from `Path.as_posix()`), and that is the only netloc
+        # we accept. Anything else is rejected rather than resolved:
+        #
+        # - `file://server/share/x` (UNC) would otherwise silently resolve to
+        #   the local path `/share/x`.
+        # - `file://C:\Users\x` (backslashes) puts the whole path in netloc
+        #   and used to resolve to `.`, the server process's cwd.
+        #
+        # Resolving either and then testing containment depends on the host
+        # filesystem layout. Denying here does not.
+        netloc = urllib.parse.urlparse(raw).netloc
+        is_drive = len(netloc) == 2 and netloc[1] == ":" and netloc[0].isalpha()
+        if netloc and not is_drive:
+            raise OctopError(
+                ErrorCode.FORBIDDEN, f"cannot access {path!r}: file:// URL must not name a host"
+            )
         resolved = backend_workspace_path(raw)
         if resolved is None:
             raise OctopError(ErrorCode.NOT_FOUND, f"cannot resolve {path!r}")
