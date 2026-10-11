@@ -66,3 +66,28 @@ def test_file_url_windows_drive_decodes_unicode() -> None:
     """file:///C:/… must unquote and match native Path form (Windows CI)."""
     url = "file:///C:/Users/me/out/%E4%BF%9D%E6%8A%A4.pptx"
     assert file_url_to_abs_path(url) == str(Path("C:/Users/me/out/保护.pptx"))
+
+
+def test_file_url_windows_drive_in_netloc_keeps_drive() -> None:
+    """``file://C:/…`` — two slashes, so the drive lands in netloc, not path.
+
+    Windows CI builds these URLs from ``Path.as_posix()``, which yields
+    ``file://C:/…``. ``urlparse`` puts ``C:`` in netloc, so reading ``path``
+    alone loses the drive and returns ``/Users/…``. On a runner whose workdir
+    is on D: that resolves drive-relative, which both escapes the containment
+    check and writes somewhere the caller did not name — SEC-2's file://
+    write test came back 200 instead of 403.
+    """
+    assert file_url_to_abs_path("file://C:/Users/me/out/a.pptx") == str(
+        Path("C:/Users/me/out/a.pptx")
+    )
+    # Percent-decoding still applies on this branch.
+    assert file_url_to_abs_path("file://C:/Users/me/out/%E4%BF%9D%E6%8A%A4.pptx") == str(
+        Path("C:/Users/me/out/保护.pptx")
+    )
+    # The three-slash form is unchanged by the fix.
+    assert file_url_to_abs_path("file:///C:/Users/me/out/a.pptx") == str(
+        Path("C:/Users/me/out/a.pptx")
+    )
+    # A UNC host is still a host, not a drive letter.
+    assert file_url_to_abs_path("file://server/share/a.pptx") != str(Path("C:/share/a.pptx"))
