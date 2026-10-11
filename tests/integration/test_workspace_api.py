@@ -582,3 +582,54 @@ async def test_from_workspace_param_is_rejected_as_unknown(env: Any) -> None:
     )
     # Workspace-relative 'etc/passwd' simply does not exist → 404, never 200.
     assert r.status_code == 404, r.text
+
+
+@pytest.mark.asyncio
+async def test_file_url_with_host_netloc_forbidden(env: Any) -> None:
+    """A file:// URL must not name a host - SEC-2, variant of the netloc bug.
+
+    urlparse puts everything between // and the next / into netloc. Only a bare
+    drive letter (file://C:/..., which Windows clients emit from
+    Path.as_posix()) is meaningful here. A UNC host used to resolve to the local
+    path /share/x, and a backslash path used to resolve to `.`, the process cwd.
+    Both now fail closed with 403 instead of being resolved and then tested
+    against a host-layout-dependent allowlist.
+    """
+    c, _srv, auth, aid = env
+    hostiles = [
+        "file://server/share/etc/passwd",
+        "file://attacker.example/share/x",
+        "file://C:" + chr(92) + "Users" + chr(92) + "a" + chr(92) + "x.txt",
+    ]
+    for hostile in hostiles:
+        r = await c.get(
+            f"/api/agents/{aid}/workspace/file",
+            params={"path": hostile},
+            headers=auth,
+        )
+        assert r.status_code == 403, (hostile, r.text)
+
+
+@pytest.mark.asyncio
+async def test_file_url_bare_drive_netloc_is_not_rejected_as_host(env: Any) -> None:
+    """The two-slash Windows form must keep working - SEC-2 regression guard.
+
+    file://C:/... is the shape Windows CI builds. It must resolve to a real
+    absolute path: not rejected as a host, and not collapsed to `.`.
+    """
+    c, _srv, auth, aid = env
+    # Built literally: Path.as_posix() only produces a drive letter on Windows,
+    # so on Linux CI this would silently degrade to the three-slash form and
+    # stop testing the shape we care about.
+    drive_url = "file://C:/Users/nobody/sec2-drive-shape-must-not-exist.txt"
+    r = await c.get(
+        f"/api/agents/{aid}/workspace/file",
+        params={"path": drive_url},
+        headers=auth,
+    )
+    # A bare drive letter is the one netloc we accept, so the host rejection
+    # must not fire on the shape Windows actually sends. Assert on the reason,
+    # not the status: on Windows the path is host-absolute and the containment
+    # layer still denies it (404); on Linux it is workspace-relative (404).
+    assert "must not name a host" not in r.text, (drive_url, r.text)
+    assert r.status_code in (403, 404), (drive_url, r.status_code, r.text)
