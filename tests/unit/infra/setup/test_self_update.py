@@ -1168,7 +1168,10 @@ def test_cold_target_install_budget_preserves_regular_timeout(
     monkeypatch.setattr(self_update, "_run_install_cmd", cold_install)
     result = self_update._run_managed_upgrade(version="1.0.2b5", locale="en")
     assert result.success is (portable and installer == "pip")
-    assert budgets == ([90, 900] if portable and installer == "pip" else [90])
+    # The budget is (deadline - now) in float seconds, so it can land a ULP
+    # under 900 when time.monotonic() is large (long-running CI hosts).
+    expected = [90, 900] if portable and installer == "pip" else [90]
+    assert budgets == pytest.approx(expected)
 
 
 # The desktop launcher compares versions with its own Go implementation
