@@ -145,7 +145,14 @@ def is_allowed_host_temp_path(resolved: Path) -> bool:
 
 def file_url_to_abs_path(file_url: str) -> str:
     parsed = urllib.parse.urlparse(file_url)
+    netloc = parsed.netloc
     path = parsed.path
+    # file://C:/… — two slashes, so urlparse puts the drive letter in netloc
+    # and path alone loses it. Without this the result is drive-relative
+    # (D:\Users\… when the workdir is on D:), which both escapes the
+    # containment check and writes somewhere the caller did not name.
+    if len(netloc) == 2 and netloc[1] == ":" and netloc[0].isalpha():
+        return str(Path(f"{netloc}{urllib.parse.unquote(path)}"))
     # file:///C:/… — Windows drive in URL path
     if len(path) >= 3 and path[0] == "/" and path[2] == ":":
         return str(Path(urllib.parse.unquote(path[1:])))
