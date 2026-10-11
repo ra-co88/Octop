@@ -31,6 +31,15 @@ PIP  := $(if $(UV),uv pip,python3 -m pip)
 # Parallel workers for make test / make test-fast (override: make test PYTEST_JOBS=4)
 PYTEST_JOBS ?= auto
 
+# Force-run on every hook run: these read data files (version manifests,
+# lockfile, badges) that nothing imports, so testmon can never infer them from
+# the import graph — it reports "changed files: 0" and deselects them. The
+# full ship bar (make test → pytest -m "not live") always runs them; the
+# fast pre-commit gate must too, so test-affected runs them in a second,
+# plain (non-testmon) pytest that cannot be deselected. See
+# tests/unit/test_release_version_sync.py.
+VERSION_SYNC_TESTS ?= tests/unit/test_release_version_sync.py
+
 # ─── Help ────────────────────────────────────────────────────────────────────
 
 .PHONY: help
@@ -262,6 +271,8 @@ precommit: format-all lint typecheck test-affected
 test-affected:
 	@echo "[test] pytest (testmon: only tests affected by changes, -n $(PYTEST_JOBS))..."
 	$(RUN) pytest --testmon -n $(PYTEST_JOBS)
+	@echo "[test] force-run version-sync gate ($(VERSION_SYNC_TESTS), plain pytest: testmon deselects it)..."
+	$(RUN) pytest $(VERSION_SYNC_TESTS) -n $(PYTEST_JOBS)
 
 # ─── Quality (frontend) ──────────────────────────────────────────────────────
 
