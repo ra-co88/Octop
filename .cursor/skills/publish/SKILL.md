@@ -369,3 +369,34 @@ git checkout {original_branch}
 - 把旧版本号 `X.Y.Z` 换成 `A.B.C`：`pyproject.toml`、`__version__`、多语言 README 徽标、`fnos/*/manifest`、`fnos/docker/app/docker/docker-compose.yaml` 镜像标签、`uv.lock` 的 octop 包版本；提交前 `git grep` 必改清单确认无旧号
 - 勿改 CHANGELOG 历史章节、测试夹具里的旧版本比较、workflow 示例号
 - 推送 tag 后提示用户关注 GitHub Actions 的发布结果
+
+<!-- FORK NOTE (ra-co88/Octop, 2026-10-11) ====================================
+     Steps 5-6 above assume the upstream Actions chain: Auto Tag On Release
+     Merge pushes the v* tag on main tip, Release.yml publishes, and
+     Release.yml dispatches Sync Main Into Develop to keep main an ancestor
+     of develop.
+
+     On this fork all three of those workflows are DISABLED, so the chain
+     never runs. Everything they did is now a manual step:
+
+       1. PR the release into main and merge it (merge commit, not squash).
+          THIS BREAKS "main is an ancestor of develop" the moment it lands.
+       2. Tag by hand on the main tip and push:
+            git tag -a 'v<version>' -F /tmp/tagmsg.txt origin/main
+            git push origin 'v<version>'
+          Use a fork-local marker, e.g. v1.0.2b7+ra.1, so upstream shipping
+          its own 1.0.2b7 cannot collide. The package version in
+          pyproject.toml stays the plain version; the local segment tracks
+          fork lineage only.
+       3. Repair the ancestry invariant:
+            git switch develop && git pull origin develop
+            git merge origin/main --no-edit && git push origin develop
+            git merge-base --is-ancestor origin/main origin/develop
+          The last command MUST print success. Skipping step 3 leaves the
+          repo violating AGENTS.md section 10 until someone notices.
+
+     Also verify after every release:
+            tests/unit/test_release_version_sync.py
+     It is force-selected on every hook run via --testmon-force-select
+     because it reads data files that nothing imports.
+     ========================================================================
