@@ -5913,6 +5913,12 @@
     "qqMailAuthGuide": "如何获取邮箱授权码",
     "personalMailAuthGuide": "如何获取邮箱授权码",
     "mailProvider": "邮箱服务商",
+    "mailProviders": {
+      "qq": "QQ 邮箱",
+      "netease": "网易邮箱",
+      "gmail": "Gmail",
+      "custom": "其他"
+    },
     "imapHost": "IMAP 服务器",
     "smtpHost": "SMTP 服务器",
     "newsAuthGuide": "如何获取腾讯新闻 API Key",
@@ -5930,6 +5936,7 @@
     "cliInstallFailed": "主机 CLI 安装失败",
     "cliInstalledHint": "主机已检测到 {{binary}}",
     "cliMissingHint": "主机尚未安装 CLI。可点击「安装 CLI」，或在 Octop 主机终端手动执行下方命令。",
+    "obsidianCliGuide": "Obsidian-cli官方安装指引：https://obsidian.md/zh/cli",
     "agentlyAuthTitle": "Agent Mail 邮箱授权",
     "agentlyIdle": "尚未授权此邮箱实例",
     "agentlyPending": "请打开授权页完成登录，授权结果会自动更新。",

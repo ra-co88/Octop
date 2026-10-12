@@ -51,7 +51,7 @@
 | 🎭 | **MBTI 人格** | 16 种人格模板与互动测试，为每个 Agent 赋予鲜明性格 |
 | 🎯 | **AgentTeams** *（Beta）* | 协调者调度多位专家协作完成多步骤任务；[详见](docs/expert-teams.md) |
 | 🔒 | **更安全** | JWT 多用户隔离、工具审批、Shell 命令防护与敏感信息脱敏，数据留在本地 |
-| 🔌 | **Connector 拓展体系** | 一键接入腾讯全家桶（文档 / 会议 / 新闻等），OAuth 与 MCP 网关轻松扩展 |
+| 🔌 | **Connector 拓展体系** | 一键接入腾讯全家桶（文档 / 会议 / 新闻等），OAuth 与 MCP 网关轻松扩展 — [支持的连接器](docs/connectors.md) |
 | 💾 | **可插拔工作区后端** | 本地目录、Docker 沙箱、PostgreSQL 或 COS/S3 存放 Agent 文件 — 与控制面数据库分离 |
 | 🧠 | **可迁移记忆系统** | 基于 [Octop Memory](https://github.com/TencentCloud/octop-memory)，记忆随工作区迁移 |
 | 📚 | **知识库** | 基于文档的 RAG 检索；支持同实例共享语料，让回答锚定私有知识 |
@@ -392,6 +392,12 @@ OpenAI 兼容 API、DashScope（千问）、Ollama 等预设 — 在控制台或
 | **Web 控制台** | 默认启用 |
 
 其他通道类型（如元宝、小艺、MQTT 等）可通过网关接入 — 详见控制台或 CLI 的通道配置。
+
+### 支持的连接器
+
+内置 OAuth / MCP 连接器包括腾讯文档、腾讯会议、Notion、滴答清单、OpenAlex、飞书 CLI、企业微信 CLI、Agent Mail、Obsidian、WeKnora、Dify 等。名称与描述支持中英双语。
+
+完整目录、鉴权类型与 MCP 模式见 **[docs/connectors.md](docs/connectors.md)**。也可在控制台添加自定义 MCP。
 
 ## 📖 CLI 参考
 

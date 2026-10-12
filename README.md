@@ -52,7 +52,7 @@ Chat through the Web Dashboard, Feishu, DingTalk, QQ, WeChat, Telegram, Discord,
 | 🎭 | **MBTI personas** | 16 personality templates plus an interactive quiz — give each agent a distinct character |
 | 🎯 | **AgentTeams** *(Beta)* | A coordinator schedules multiple experts on multi-step work; [details](docs/expert-teams.md) |
 | 🔒 | **Security built-in** | JWT multi-user isolation, tool approval, shell command guardrails, and PII redaction — data stays local |
-| 🔌 | **Connector ecosystem** | Tencent suite (Docs, Meeting, News, …); OAuth and MCP gateway extend resource boundaries |
+| 🔌 | **Connector ecosystem** | Tencent suite (Docs, Meeting, News, …); OAuth and MCP gateway extend resource boundaries — [supported connectors](docs/connectors.md) |
 | 💾 | **Pluggable workspace backends** | Local disk, Docker sandbox, PostgreSQL, or COS/S3 for agent files — separate from the control-plane DB |
 | 🧠 | **Portable memory** | Powered by [Octop Memory](https://github.com/TencentCloud/octop-memory); memory migrates with the workspace |
 | 📚 | **Knowledge base** | RAG over your documents; share corpora within a deployment and ground answers in your private data |
@@ -392,6 +392,12 @@ OpenAI-compatible APIs, DashScope (Qwen), Ollama, and other presets — configur
 | **Web Dashboard** | Enabled by default |
 
 Other kinds (e.g. Yuanbao, Xiaoyi, MQTT) are available via the gateway — see channel setup in the dashboard or CLI.
+
+### Supported connectors
+
+Built-in OAuth / MCP connectors include Tencent Docs, Tencent Meeting, Notion, TickTick, OpenAlex, Feishu CLI, WeCom CLI, Agent Mail, Obsidian, WeKnora, Dify, and more. Names and descriptions are localized (`en` / `zh`).
+
+Full catalog, auth kinds, and MCP modes: **[docs/connectors.md](docs/connectors.md)**. Custom MCP servers can be added in the dashboard.
 
 ## 📖 CLI reference
 

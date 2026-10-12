@@ -5912,6 +5912,12 @@
     "qqMailAuthGuide": "How to get mailbox authorization code",
     "personalMailAuthGuide": "How to get mailbox authorization code",
     "mailProvider": "Mail provider",
+    "mailProviders": {
+      "qq": "QQ Mail",
+      "netease": "NetEase Mail",
+      "gmail": "Gmail",
+      "custom": "Other"
+    },
     "imapHost": "IMAP server",
     "smtpHost": "SMTP server",
     "newsAuthGuide": "How to get a Tencent News API Key",
@@ -5929,6 +5935,7 @@
     "cliInstallFailed": "Host CLI install failed",
     "cliInstalledHint": "Detected {{binary}} on the host",
     "cliMissingHint": "CLI is not installed on the host. Click Install CLI, or run the command below on the Octop host.",
+    "obsidianCliGuide": "Obsidian CLI official install guide: https://obsidian.md/zh/cli",
     "agentlyAuthTitle": "Agent Mail authorization",
     "agentlyIdle": "This mailbox instance is not authorized",
     "agentlyPending": "Open the authorization page and sign in. The result will update automatically.",
