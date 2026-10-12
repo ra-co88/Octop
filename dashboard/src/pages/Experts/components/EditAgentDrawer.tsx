@@ -250,6 +250,10 @@ function EditAgentDrawerBody({
   const [loading, setLoading] = useState(false);
   const [filesLoading, setFilesLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Synchronous in-flight latch: `saving` only flips after a re-render, and
+  // performSave awaits validation and the root-dir probe before
+  // setSaving(true), so a second click in that window would start a second save.
+  const savingRef = useRef(false);
   const [fileModalOpen, setFileModalOpen] = useState(false);
   const [editingFile, setEditingFile] = useState<string | null>(null);
   const [listRenameOpen, setListRenameOpen] = useState(false);
@@ -259,6 +263,7 @@ function EditAgentDrawerBody({
     "config",
   );
   const [listRenameSaving, setListRenameSaving] = useState(false);
+  const listRenameSavingRef = useRef(false);
   const [subagentCatalogOpen, setSubagentCatalogOpen] = useState(false);
   const [skillCatalogOpen, setSkillCatalogOpen] = useState(false);
   const welcomeConfigRef = useRef<WelcomeConfigRef>(null);
@@ -391,7 +396,7 @@ function EditAgentDrawerBody({
     };
   }, [agent.agent_id, agent.state, form, message, t]);
 
-  const handleSave = useCallback(async () => {
+  const performSave = useCallback(async () => {
     const values = await form.validateFields();
     if (values.backend_choice === "composite") {
       const pathError = validatePathMappings(pathMappings, t);
@@ -540,6 +545,16 @@ function EditAgentDrawerBody({
     t,
   ]);
 
+  const handleSave = useCallback(async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    try {
+      await performSave();
+    } finally {
+      savingRef.current = false;
+    }
+  }, [performSave]);
+
   useEffect(() => {
     onSaveReady(handleSave);
   }, [handleSave, onSaveReady]);
@@ -657,6 +672,7 @@ function EditAgentDrawerBody({
   };
 
   const confirmListRename = async () => {
+    if (listRenameSavingRef.current) return;
     if (!listRenamePath || !listRenameValue.trim()) return;
     const dest = joinWorkspacePath(
       parentWorkspacePath(listRenamePath),
@@ -666,6 +682,7 @@ function EditAgentDrawerBody({
       setListRenameOpen(false);
       return;
     }
+    listRenameSavingRef.current = true;
     setListRenameSaving(true);
     try {
       await workspaceApi.moveWorkspaceFile(
@@ -686,6 +703,7 @@ function EditAgentDrawerBody({
     } catch (err: unknown) {
       message.error(apiErrorMessage(err, t("workspace.renameFailed"), t));
     } finally {
+      listRenameSavingRef.current = false;
       setListRenameSaving(false);
     }
   };
@@ -1341,6 +1359,7 @@ function EditAgentDrawerBody({
       >
         <Input
           value={listRenameValue}
+          disabled={listRenameSaving}
           onChange={(e) => setListRenameValue(e.target.value)}
           onPressEnter={() => void confirmListRename()}
           autoFocus
