@@ -166,27 +166,50 @@
   line-height: 1;
 }
 
+/* Agent state indicator (A11Y-6b).
+   Colour alone cannot carry this: measured under deuteranopia, the old
+   #22c55e / #ef4444 pair separated by only 1.10:1 — visually identical — and the
+   best achievable hue-only separation was 1.57:1, well under the 3:1 WCAG wants
+   for non-text UI. So each state group gets a distinct SHAPE, with colour as
+   reinforcement only. The four shapes stay legible at 6px. */
 .stateDot {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
+  box-sizing: border-box;
   background: var(--fn-text-quaternary);
 
+  /* Running: solid disc — "healthy, working". */
   &[data-state="running"] {
-    background: #22c55e;
+    background: #15803d;
   }
 
-  &[data-state="stopped"],
-  &[data-state="created"],
-  &[data-state="stopping"],
-  &[data-state="starting"] {
-    background: #eab308;
+  /* Created: solid disc too, but neutral — nothing is running yet. */
+  &[data-state="created"] {
+    background: #8c8c8c;
   }
 
+  /* Stopped: hollow ring — "present but inert". */
+  &[data-state="stopped"] {
+    background: transparent;
+    border: 1.5px solid #8c8c8c;
+  }
+
+  /* Starting / stopping: half-filled ring — "in transition". Distinct from both
+     the solid disc and the hollow ring, and from each other by colour. */
+  &[data-state="starting"],
+  &[data-state="stopping"] {
+    background: linear-gradient(90deg, #b45309 50%, transparent 50%);
+    border: 1.5px solid #b45309;
+  }
+
+  /* Failed / error: square — the only non-round shape, so it is unmistakable
+     even at 6px or in greyscale. */
   &[data-state="failed"],
   &[data-state="error"] {
-    background: #ef4444;
+    background: #b91c1c;
+    border-radius: 1px;
   }
 }
 

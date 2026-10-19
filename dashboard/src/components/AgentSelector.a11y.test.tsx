@@ -1,4 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { OctopAgent } from "../context/AgentContext";
@@ -155,5 +157,19 @@ describe("AgentSelector tablist (A11Y-9)", () => {
     const dot = tab.querySelector("[data-state]");
     expect(dot).not.toBeNull();
     expect(dot).toHaveAttribute("aria-hidden");
+  });
+
+  it("marks EVERY state dot decorative, not just the tab ones", () => {
+    // A11Y-6b: there are three render sites (tab chip, dropdown item, Select
+    // option). Leaving one without aria-hidden keeps colour as its only signal.
+    const src = readFileSync(resolve(__dirname, "AgentSelector.tsx"), "utf8");
+    const dots = src.split("className={styles.stateDot}").length - 1;
+    expect(dots).toBe(3);
+    let idx = -1;
+    let decorated = 0;
+    while ((idx = src.indexOf("className={styles.stateDot}", idx + 1)) !== -1) {
+      if (src.slice(idx, idx + 220).includes("aria-hidden")) decorated += 1;
+    }
+    expect(decorated).toBe(3);
   });
 });
