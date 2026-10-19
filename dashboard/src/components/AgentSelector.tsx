@@ -15,6 +15,7 @@ import {
   type BarChipSize,
 } from "../utils/agentSelector";
 import { isTeamAgent } from "../utils/teamAgent";
+import { handleTablistNav } from "../utils/tablistNav";
 import { ExpertIcon } from "../pages/Experts/components/iconForName";
 import RemoteExpertHint from "../pages/Chat/components/RemoteExpertHint";
 import styles from "./AgentSelector.module.less";
@@ -231,41 +232,15 @@ export default function AgentSelector({
   // Roving focus across the tablist. Arrow keys move selection, matching the
   // automatic-activation behaviour of an ARIA tablist; Home/End jump to the
   // ends. Only the selected tab is in the tab order, so Tab leaves the group.
+  // Shared with ChromeTabBar via utils/tablistNav so the two cannot drift.
   const handleTablistKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const keys = [
-      "ArrowRight",
-      "ArrowLeft",
-      "ArrowDown",
-      "ArrowUp",
-      "Home",
-      "End",
-    ];
-    if (!keys.includes(e.key)) return;
-    const chips = Array.from(
-      e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'),
-    );
-    if (chips.length === 0) return;
-    const current = chips.findIndex((c) => c === document.activeElement);
-    let next: number;
-    switch (e.key) {
-      case "Home":
-        next = 0;
-        break;
-      case "End":
-        next = chips.length - 1;
-        break;
-      case "ArrowRight":
-      case "ArrowDown":
-        next = current < 0 ? 0 : (current + 1) % chips.length;
-        break;
-      default:
-        next = current <= 0 ? chips.length - 1 : current - 1;
-    }
-    e.preventDefault();
-    chips[next]?.focus();
-    // Select as focus moves, so the tablist behaves like antd's Tabs.
-    const id = chips[next]?.getAttribute("data-agent-id");
-    if (id) setActiveAgent(id);
+    handleTablistNav(e, {
+      onActivate: (tab) => {
+        // Select as focus moves, so the tablist behaves like antd's Tabs.
+        const id = tab.getAttribute("data-agent-id");
+        if (id) setActiveAgent(id);
+      },
+    });
   };
 
   useEffect(() => {
