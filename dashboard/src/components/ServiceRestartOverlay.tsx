@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { CSSProperties } from "react";
-import { createPortal } from "react-dom";
+import AppDialog from "./AppDialog";
 import { CheckCircle, AlertTriangle, Power } from "lucide-react";
 import { Button, Spin } from "antd";
 import { useTranslation } from "react-i18next";
@@ -82,13 +82,21 @@ export default function ServiceRestartOverlay({
 
   if (phase === "idle") return null;
 
-  return createPortal(
-    <div
-      style={OVERLAY_BLOCK_STYLE}
+  // Only the phases with a way out are dismissable. `restarting` is progress
+  // and `success` has its own dismiss control, so Escape must not close them
+  // out from under the user mid-restart.
+  const dismissable = phase === "confirm" || phase === "timeout";
+
+  return (
+    <AppDialog
       role="alertdialog"
-      aria-modal="true"
-      aria-busy={phase === "restarting"}
+      overlayProps={{
+        style: OVERLAY_BLOCK_STYLE,
+        "aria-busy": phase === "restarting",
+      }}
       aria-label={t("advancedSettings.update.restarting")}
+      dismissable={dismissable}
+      onClose={onDismiss}
     >
       <div className={styles.panel} style={PANEL_STYLE}>
         {phase === "confirm" && (
@@ -153,7 +161,6 @@ export default function ServiceRestartOverlay({
           </>
         )}
       </div>
-    </div>,
-    document.body,
+    </AppDialog>
   );
 }
