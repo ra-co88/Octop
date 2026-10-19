@@ -81,6 +81,7 @@ import {
   validatePathMappings,
   type PathMapping,
 } from "./agentBackendForm";
+import { runExclusive } from "./asyncLatch";
 import AgentBackendFields from "./AgentBackendFields";
 import ExpertComposerDefaultsFields from "./ExpertComposerDefaultsFields";
 import SkillCatalogDrawer from "./SkillCatalogDrawer";
@@ -250,8 +251,8 @@ function EditAgentDrawerBody({
   const [loading, setLoading] = useState(false);
   const [filesLoading, setFilesLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  // Synchronous in-flight latch: `saving` only flips after a re-render, and
-  // performSave awaits validation and the root-dir probe before
+  // Synchronous in-flight latch (see asyncLatch.ts): `saving` only flips after
+  // a re-render, and performSave awaits validation and the root-dir probe before
   // setSaving(true), so a second click in that window would start a second save.
   const savingRef = useRef(false);
   const [fileModalOpen, setFileModalOpen] = useState(false);
@@ -546,13 +547,7 @@ function EditAgentDrawerBody({
   ]);
 
   const handleSave = useCallback(async () => {
-    if (savingRef.current) return;
-    savingRef.current = true;
-    try {
-      await performSave();
-    } finally {
-      savingRef.current = false;
-    }
+    await runExclusive(savingRef, performSave);
   }, [performSave]);
 
   useEffect(() => {
@@ -672,7 +667,6 @@ function EditAgentDrawerBody({
   };
 
   const confirmListRename = async () => {
-    if (listRenameSavingRef.current) return;
     if (!listRenamePath || !listRenameValue.trim()) return;
     const dest = joinWorkspacePath(
       parentWorkspacePath(listRenamePath),
@@ -682,30 +676,31 @@ function EditAgentDrawerBody({
       setListRenameOpen(false);
       return;
     }
-    listRenameSavingRef.current = true;
-    setListRenameSaving(true);
-    try {
-      await workspaceApi.moveWorkspaceFile(
-        agent.agent_id,
-        listRenamePath,
-        dest,
-      );
-      if (listRenameKind === "subagent") {
-        await request(`/agents/${agent.agent_id}/reload`, { method: "POST" });
+    // Validation stays outside the latch so a rejected name cannot wedge it.
+    await runExclusive(listRenameSavingRef, async () => {
+      setListRenameSaving(true);
+      try {
+        await workspaceApi.moveWorkspaceFile(
+          agent.agent_id,
+          listRenamePath,
+          dest,
+        );
+        if (listRenameKind === "subagent") {
+          await request(`/agents/${agent.agent_id}/reload`, { method: "POST" });
+        }
+        message.success(t("workspace.renameSuccess"));
+        setListRenameOpen(false);
+        if (listRenameKind === "config") {
+          await reloadConfigFiles();
+        } else {
+          await reloadSubagents();
+        }
+      } catch (err: unknown) {
+        message.error(apiErrorMessage(err, t("workspace.renameFailed"), t));
+      } finally {
+        setListRenameSaving(false);
       }
-      message.success(t("workspace.renameSuccess"));
-      setListRenameOpen(false);
-      if (listRenameKind === "config") {
-        await reloadConfigFiles();
-      } else {
-        await reloadSubagents();
-      }
-    } catch (err: unknown) {
-      message.error(apiErrorMessage(err, t("workspace.renameFailed"), t));
-    } finally {
-      listRenameSavingRef.current = false;
-      setListRenameSaving(false);
-    }
+    });
   };
 
   const addPathMapping = () =>
