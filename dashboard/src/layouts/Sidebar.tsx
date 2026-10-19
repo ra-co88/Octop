@@ -428,6 +428,20 @@ export default function Sidebar({
   const [chatSidebarOpen, setChatSidebarOpen] = useChatSidebarOpen();
   const showChatRailExpand = !isMinimal && !chatSidebarOpen;
 
+  /**
+   * Escape closes the mobile drawer. There were 0 Escape handlers anywhere in
+   * layouts/, so an open drawer could only be dismissed by finding the toggle
+   * again — impossible for a keyboard or screen-reader user who is inside it.
+   */
+  useEffect(() => {
+    if (!isMobile || collapsed) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onToggle();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isMobile, collapsed, onToggle]);
+
   const isRailCollapsed = collapsed && !isMobile;
   const wordmarkSrc = isDark
     ? "/logo_horizontal_white.png"
@@ -680,6 +694,16 @@ export default function Sidebar({
         style={{ display: "contents" }}
       >
         <div
+          /**
+           * When collapsed this drawer is only moved off-screen with a
+           * transform, which leaves it in the accessibility tree: a screen
+           * reader still walks a nav the user cannot see. aria-hidden takes it
+           * out, and hiding it from the tab order stops Tab landing on
+           * off-screen links. Both are scoped to the closed state only, because
+           * on desktop "collapsed" means the visible icon rail.
+           */
+          aria-hidden={collapsed || undefined}
+          inert={collapsed ? "" : undefined}
           style={{
             position: "fixed",
             top: 0,
