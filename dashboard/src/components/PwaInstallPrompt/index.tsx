@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore, useState } from "react";
-import { createPortal } from "react-dom";
+import AppDialog from "../AppDialog";
 import { Tooltip } from "antd";
 import { useTranslation } from "react-i18next";
 import { Download, MonitorDown, Share, X } from "lucide-react";
@@ -35,15 +35,11 @@ function isStandalone(): boolean {
 
 export function IosGuide({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
-  return createPortal(
-    <div
-      className={styles.iosOverlay}
-      role="dialog"
-      aria-modal="true"
+  return (
+    <AppDialog
+      overlayClassName={styles.iosOverlay}
       aria-label={t("pwa.addToHomeScreen", "添加到主屏幕")}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      onClose={onClose}
     >
       <div className={styles.iosSheet}>
         <button
@@ -79,8 +75,7 @@ export function IosGuide({ onClose }: { onClose: () => void }) {
         </ol>
         <div className={styles.iosArrow}>↓</div>
       </div>
-    </div>,
-    document.body,
+    </AppDialog>
   );
 }
 
@@ -89,15 +84,11 @@ export function IosGuide({ onClose }: { onClose: () => void }) {
 export function DesktopInstallGuide({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const isEdge = /edg/i.test(navigator.userAgent);
-  return createPortal(
-    <div
-      className={styles.desktopOverlay}
-      role="dialog"
-      aria-modal="true"
+  return (
+    <AppDialog
+      overlayClassName={styles.desktopOverlay}
       aria-label={t("pwa.installDesktopApp", "安装为桌面应用")}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      onClose={onClose}
     >
       <div className={styles.desktopSheet}>
         <button
@@ -149,8 +140,7 @@ export function DesktopInstallGuide({ onClose }: { onClose: () => void }) {
           )}
         </p>
       </div>
-    </div>,
-    document.body,
+    </AppDialog>
   );
 }
 

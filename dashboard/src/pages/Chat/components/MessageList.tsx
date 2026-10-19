@@ -833,6 +833,10 @@ export default function MessageList(props: MessageListProps) {
           ref={virtuosoRef}
           className={styles.messageList}
           style={{ height: "100%" }}
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions"
+          aria-busy={isStreaming || undefined}
           data={messageGroups}
           context={virtuosoContext}
           firstItemIndex={firstItemIndex}
@@ -860,7 +864,14 @@ export default function MessageList(props: MessageListProps) {
           }
         />
       ) : (
-        <div className={styles.messageList} ref={bindNonVirtualScroller}>
+        <div
+          className={styles.messageList}
+          ref={bindNonVirtualScroller}
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions"
+          aria-busy={isStreaming || undefined}
+        >
           <div className={styles.messageListInner}>
             {historyHeader}
             {messageGroups.map((group, groupIndex) => (

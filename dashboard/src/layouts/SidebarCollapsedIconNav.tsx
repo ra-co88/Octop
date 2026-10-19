@@ -41,6 +41,10 @@ export default function SidebarCollapsedIconNav({
             <button
               type="button"
               onClick={() => onNavigate(item.path)}
+              // The Tooltip is not part of the accessibility tree, so the
+              // button needs its own name or it announces as "button".
+              aria-label={t(item.labelKey)}
+              aria-current={active ? "page" : undefined}
               style={{
                 display: "flex",
                 alignItems: "center",
