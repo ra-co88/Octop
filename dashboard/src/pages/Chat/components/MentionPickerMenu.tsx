@@ -31,6 +31,18 @@ export function firstFileMentionIndex(items: MentionPick[]): number {
   return items.findIndex((item) => item.kind === "file");
 }
 
+/** Id of the menu container, referenced by the composer's aria-controls. */
+export const MENTION_LISTBOX_ID = "octop-mention-listbox";
+
+/**
+ * DOM id for the option at a flat index. The composer points
+ * aria-activedescendant at this so a screen reader announces the highlighted
+ * item while focus stays in the textarea.
+ */
+export function mentionOptionId(index: number): string {
+  return `octop-mention-option-${index}`;
+}
+
 export function buildMentionItems(
   query: string,
   connectors: ChatConnectorOption[],
@@ -149,9 +161,16 @@ export default function MentionPickerMenu({
   const hasFilePick = fileCount > 0;
 
   if (items.length === 0 && !fileHint) {
+    // Still a listbox: the composer's aria-controls points here whenever the
+    // menu is open, and pointing at a non-listbox breaks the relationship.
     return (
-      <div className={styles.mentionMenu}>
-        <div className={styles.mentionEmpty}>
+      <div
+        className={styles.mentionMenu}
+        id={MENTION_LISTBOX_ID}
+        role="listbox"
+        aria-label={t("mention.listLabel", "Mentions")}
+      >
+        <div className={styles.mentionEmpty} role="presentation">
           {t("mention.empty", "No matches")}
         </div>
       </div>
@@ -172,7 +191,12 @@ export default function MentionPickerMenu({
 
   let flatIndex = -1;
   return (
-    <div className={styles.mentionMenu}>
+    <div
+      className={styles.mentionMenu}
+      id={MENTION_LISTBOX_ID}
+      role="listbox"
+      aria-label={t("mention.listLabel", "Mentions")}
+    >
       {sections.map((section) => (
         <div key={section.title}>
           <div className={styles.mentionCategory}>{section.title}</div>
@@ -202,10 +226,17 @@ export default function MentionPickerMenu({
             }
             const pathHint =
               item.kind === "file" && item.path !== item.label ? item.path : "";
+            // role="option" on a real <button> keeps click and focus behaviour
+            // while giving the listbox its children. The active index is owned
+            // by the composer (it follows the typing), so aria-selected tracks
+            // that rather than local focus.
             return (
               <button
                 key={mentionPickKey(item)}
                 type="button"
+                id={mentionOptionId(idx)}
+                role="option"
+                aria-selected={active}
                 className={`${styles.mentionItem} ${
                   active ? styles.mentionItemActive : ""
                 }`}

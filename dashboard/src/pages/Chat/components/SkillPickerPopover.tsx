@@ -85,6 +85,7 @@ export default function SkillPickerPopover({
       items={enabledSkills}
       filterFn={filterFn}
       searchPlaceholder={t("chat.skillPickerSearch", "Search skills")}
+      ariaLabel={t("chat.skillPickerSearch", "Search skills")}
       emptyMessage={t("chat.skillPickerEmpty")}
       width="wide"
       footerIcon={

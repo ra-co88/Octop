@@ -25,7 +25,10 @@ import type { KnowledgeBase } from "../../../api/modules/knowledgeBases";
 import type { SkillSpec } from "../../Agent/Skills/useSkills";
 import type { ChatAgentOption } from "./ExpertAgentAvatar";
 import type { AgentSubagentSummary } from "../../../api/modules/subagents";
-import MentionPickerMenu from "./MentionPickerMenu";
+import MentionPickerMenu, {
+  MENTION_LISTBOX_ID,
+  mentionOptionId,
+} from "./MentionPickerMenu";
 import ChatInputPreviewBar from "./ChatInputPreviewBar";
 import ChatInputActionsRow from "./ChatInputActionsRow";
 import ChatQueuedMessages from "./ChatQueuedMessages";
@@ -801,6 +804,21 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             <textarea
               ref={textareaRef}
               className={styles.textarea}
+              // Combobox semantics: the textarea owns the popup, and
+              // aria-activedescendant names the option the arrow keys have
+              // highlighted, so the highlighted item is announced while focus
+              // stays in the input. Without this the menu was a visually-only
+              // affordance — 0 listbox/combobox roles existed in pages/Chat.
+              role="combobox"
+              // A combobox must have a name. The placeholder is not one: it
+              // disappears once the user types, and some AT ignores it.
+              aria-label={t("chatWelcome.inputPlaceholder", "Message Octop...")}
+              aria-expanded={mentionMenuOpen}
+              aria-controls={mentionMenuOpen ? MENTION_LISTBOX_ID : undefined}
+              aria-activedescendant={
+                mentionMenuOpen ? mentionOptionId(mentionMenuIndex) : undefined
+              }
+              aria-autocomplete="list"
               value={text}
               onChange={(e) => {
                 userHasEditedRef.current = true;

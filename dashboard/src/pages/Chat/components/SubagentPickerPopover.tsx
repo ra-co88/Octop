@@ -40,6 +40,7 @@ export default function SubagentPickerPopover({
       items={subagents}
       filterFn={filterFn}
       searchPlaceholder={t("chat.subagentPickerSearch")}
+      ariaLabel={t("chat.subagentPickerSearch")}
       emptyMessage={t("chat.subagentPickerEmpty")}
       width="compact"
       footerIcon={
@@ -72,6 +73,9 @@ export default function SubagentPickerPopover({
             className={`${styles.skillPickerItem} ${
               active ? styles.subagentPickerItemActive : ""
             }`}
+            // The selected state was carried by a CSS class only, so a screen
+            // reader could not tell an installed subagent from one that is not.
+            aria-pressed={active}
             onClick={() => onSelect(subagent)}
           >
             <span className={styles.skillPickerAvatar} aria-hidden>

@@ -73,6 +73,11 @@ export default function ExpertPickerPopover({
           ? t("chat.expertPickerHiddenSearch")
           : t("chat.expertPickerSearch")
       }
+      ariaLabel={
+        viewingHidden
+          ? t("chat.expertPickerHiddenSearch")
+          : t("chat.expertPickerSearch")
+      }
       emptyMessage={
         viewingHidden
           ? t("chat.expertPickerHiddenEmpty")
@@ -151,6 +156,9 @@ export default function ExpertPickerPopover({
             <button
               type="button"
               className={styles.expertPickerSelect}
+              // Selection was CSS-only, so which experts are active was
+              // invisible to assistive tech.
+              aria-pressed={active}
               onClick={() => onSelect(agent)}
             >
               <ExpertAgentAvatar
