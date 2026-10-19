@@ -36,15 +36,11 @@ describe("theme palettes", () => {
     ]);
   });
 
-  it("keeps the historic Elegant Rose default brand tokens", () => {
-    expect(ANTD_BRAND_TOKENS.rose.light.colorPrimary).toBe("#E85D75");
-    expect(ANTD_BRAND_TOKENS.rose.light.colorPrimaryHover).toBe("#D14A62");
-    expect(ANTD_BRAND_TOKENS.rose.light.colorPrimaryActive).toBe("#B83A50");
-    expect(ANTD_BRAND_TOKENS.rose.dark.colorPrimary).toBe("#F08B9A");
-    expect(ANTD_BRAND_TOKENS.rose.dark.colorLink).toBe("#F08B9A");
-  });
-
-  it.each(VALID_PALETTES.filter((palette) => palette !== "rose"))(
+  // Rose is no longer exempt. It used to be pinned to the "historic Elegant
+  // Rose" (#E85D75 / #F08B9A) and excluded from the contrast gate below, which
+  // meant the DEFAULT palette shipped white-on-primary at 3.36:1 (light) and
+  // 2.37:1 (dark) — both under the 4.5:1 AA floor, the dark case badly so.
+  it.each(VALID_PALETTES)(
     "keeps %s solid Ant Design states readable with white text",
     (palette) => {
       for (const mode of ["light", "dark"] as const) {

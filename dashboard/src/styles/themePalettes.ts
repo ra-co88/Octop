@@ -44,7 +44,7 @@ export const PALETTE_STORAGE_KEY = LEGACY_PALETTE_STORAGE_KEY;
 
 /** Swatch color shown in the palette picker (light brand). */
 export const PALETTE_SWATCH: Record<ThemePalette, string> = {
-  rose: "#E85D75",
+  rose: "#B04759",
   tech: "#4B74FA",
   indigo: "#6366F1",
   teal: "#0D9488",
@@ -76,23 +76,23 @@ export const ANTD_BRAND_TOKENS: Record<
 > = {
   rose: {
     light: {
-      colorPrimary: "#E85D75",
-      colorPrimaryHover: "#D14A62",
-      colorPrimaryActive: "#B83A50",
-      colorLink: "#E85D75",
+      colorPrimary: "#B04759",
+      colorPrimaryHover: "#973D4D",
+      colorPrimaryActive: "#7F3340",
+      colorLink: "#B04759",
     },
     dark: {
-      colorPrimary: "#F08B9A",
-      colorPrimaryBg: "rgba(232, 93, 117, 0.12)",
-      colorPrimaryBgHover: "rgba(232, 93, 117, 0.16)",
-      colorPrimaryBorder: "rgba(232, 93, 117, 0.25)",
-      colorPrimaryBorderHover: "rgba(232, 93, 117, 0.35)",
-      colorPrimaryHover: "#F5A8B4",
-      colorPrimaryActive: "#E85D75",
-      colorPrimaryText: "#F08B9A",
-      colorPrimaryTextHover: "#F5A8B4",
-      colorPrimaryTextActive: "#E85D75",
-      colorLink: "#F08B9A",
+      colorPrimary: "#B04759",
+      colorPrimaryBg: "rgba(176, 71, 89, 0.12)",
+      colorPrimaryBgHover: "rgba(176, 71, 89, 0.16)",
+      colorPrimaryBorder: "rgba(176, 71, 89, 0.25)",
+      colorPrimaryBorderHover: "rgba(176, 71, 89, 0.35)",
+      colorPrimaryHover: "#973D4D",
+      colorPrimaryActive: "#7F3340",
+      colorPrimaryText: "#E8899A",
+      colorPrimaryTextHover: "#F0A3B0",
+      colorPrimaryTextActive: "#E8899A",
+      colorLink: "#E8899A",
     },
   },
   tech: {
