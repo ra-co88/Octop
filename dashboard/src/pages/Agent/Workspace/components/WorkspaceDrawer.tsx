@@ -4,7 +4,7 @@
  * without modifying the global active-agent selection.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   App,
   Tree,
@@ -56,6 +56,7 @@ import { saveBlobAsFile } from "../../../../utils/saveBlobAsFile";
 import AgentNotReadyScreen from "../../../Chat/components/AgentNotReadyScreen";
 import { fileTreeIcon } from "../../../../utils/fileTreeIcon";
 import { dedupeFileTreeInfos } from "../../../../utils/fileTreeNodes";
+import { createReadGuard } from "./readGuard";
 import { workspaceEntryPath } from "../../../../utils/workspacePath";
 import FileViewer from "./FileViewer";
 import {
@@ -266,6 +267,12 @@ export default function WorkspaceDrawer({
   const [content, setContent] = useState<string>("");
   const [editMode, setEditMode] = useState(false);
   const [fileLoading, setFileLoading] = useState(false);
+  /**
+   * Monotonic ticket for content reads. See `readGuard.ts` — without it a slow
+   * read for file A can land after a fast read for file B and overwrite the
+   * viewer, so the user sees the wrong file's contents.
+   */
+  const contentReadSeq = useRef(0);
   const [saving, setSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState(true);
   const [archiveExporting, setArchiveExporting] = useState(false);
@@ -533,6 +540,8 @@ export default function WorkspaceDrawer({
         setContent("");
         if (isMobile) setMobilePane("viewer");
         if (!getMediaKind(dest) && isProbablyText(dest)) {
+          const guard = createReadGuard(contentReadSeq);
+          const token = guard.begin();
           setFileLoading(true);
           try {
             const r = await request<{ content: string }>(
@@ -542,9 +551,10 @@ export default function WorkspaceDrawer({
                 )}`,
               ),
             );
+            if (!guard.isCurrent(token)) return;
             setContent(r.content);
           } finally {
-            setFileLoading(false);
+            if (guard.isCurrent(token)) setFileLoading(false);
           }
         }
       }
@@ -750,6 +760,11 @@ export default function WorkspaceDrawer({
     }
     setDirEntries([]);
     if (isMobile) setMobilePane("viewer");
+    // Take the ticket BEFORE the early returns: selecting an image or a binary
+    // must still invalidate an in-flight text read, or that read lands later and
+    // paints text over the image viewer.
+    const guard = createReadGuard(contentReadSeq);
+    const token = guard.begin();
     if (getMediaKind(path)) return;
     if (!isProbablyText(path)) return;
     setFileLoading(true);
@@ -759,14 +774,18 @@ export default function WorkspaceDrawer({
           `/agents/${agentId}/workspace/file?path=${encodeURIComponent(path)}`,
         ),
       );
+      // A newer selection superseded this read; applying it would show the
+      // wrong file's contents under the newly selected name.
+      if (!guard.isCurrent(token)) return;
       setContent(r.content);
     } catch (err: unknown) {
+      if (!guard.isCurrent(token)) return;
       message.error(
         (err instanceof Error ? err.message : String(err)) ||
           t("workspace.readFailed", "读取失败"),
       );
     } finally {
-      setFileLoading(false);
+      if (guard.isCurrent(token)) setFileLoading(false);
     }
   };
 
@@ -883,6 +902,8 @@ export default function WorkspaceDrawer({
       setEditMode(true);
       return;
     }
+    const guard = createReadGuard(contentReadSeq);
+    const token = guard.begin();
     setFileLoading(true);
     try {
       const r = await request<{ content: string }>(
@@ -890,15 +911,18 @@ export default function WorkspaceDrawer({
           `/agents/${agentId}/workspace/doc?path=${encodeURIComponent(path)}`,
         ),
       );
+      // Entering edit mode on a superseded read would edit the wrong file.
+      if (!guard.isCurrent(token)) return;
       setContent(r.content);
       setEditMode(true);
     } catch (err: unknown) {
+      if (!guard.isCurrent(token)) return;
       message.error(
         (err instanceof Error ? err.message : String(err)) ||
           t("workspace.readFailed", "读取失败"),
       );
     } finally {
-      setFileLoading(false);
+      if (guard.isCurrent(token)) setFileLoading(false);
     }
   };
 
