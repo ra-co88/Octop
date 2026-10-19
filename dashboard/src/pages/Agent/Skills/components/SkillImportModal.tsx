@@ -260,16 +260,33 @@ export function SkillImportModal({
             </p>
           </div>
 
+          {/* A <div> with onClick is unreachable by keyboard: no role, not
+              focusable, and Enter/Space did nothing. It is now a button with an
+              explicit key handler, so the drop zone is fully operable without a
+              mouse. tabIndex={-1} when busy keeps it out of the tab order while
+              staying programmatically focusable. */}
           <div
             className={`${styles.zipDragDrop} ${
               isDragging ? styles.zipDragDropActive : ""
             } ${zipFile ? styles.zipDragDropHasFile : ""}`}
+            role="button"
+            tabIndex={busy ? -1 : 0}
+            aria-disabled={busy}
+            aria-label={t("skills.zipDragDropHint")}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={() => !busy && fileInputRef.current?.click()}
+            onKeyDown={(e) => {
+              if (busy) return;
+              if (e.key === "Enter" || e.key === " ") {
+                // Space would otherwise scroll the page.
+                e.preventDefault();
+                fileInputRef.current?.click();
+              }
+            }}
           >
-            <div className={styles.zipDragDropIcon}>
+            <div className={styles.zipDragDropIcon} aria-hidden>
               <svg viewBox="0 0 24 24" width="48" height="48" fill="none">
                 <path
                   d="M20 17V19C20 20.1046 19.1046 21 18 21H6C4.89543 21 4 20.1046 4 19V17"
