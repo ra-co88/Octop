@@ -2,6 +2,7 @@ import type { MouseEvent, ReactNode } from "react";
 import { Tooltip } from "antd";
 import { Plus, X } from "lucide-react";
 import styles from "./index.module.less";
+import { handleTablistNav } from "../../utils/tablistNav";
 
 export type ChromeTabItem = {
   key: string;
@@ -42,13 +43,31 @@ export function ChromeTabBar({
 }: ChromeTabBarProps) {
   return (
     <div className={[styles.tabBar, className].filter(Boolean).join(" ")}>
-      <div className={styles.tabsScroll} role="tablist">
+      <div
+        className={styles.tabsScroll}
+        role="tablist"
+        // Arrow keys move between tabs and select as they go (automatic
+        // activation, matching antd Tabs and AgentSelector).
+        onKeyDown={(e) => {
+          handleTablistNav(e, {
+            onActivate: (tab) => {
+              const key = tab.getAttribute("data-tab-key");
+              if (key) onChange(key);
+            },
+          });
+        }}
+      >
         {tabs.map((tab) => {
           const selected = tab.key === activeKey;
           const node = (
             <div
               role="tab"
               aria-selected={selected}
+              // Roving tabindex: only the selected tab is reachable by Tab, so
+              // Tab leaves the strip and the arrow keys move within it. Without
+              // tabIndex the tabs were not focusable at all.
+              tabIndex={selected ? 0 : -1}
+              data-tab-key={tab.key}
               className={`${styles.tab}${
                 selected ? ` ${styles.tabActive}` : ""
               }`}
