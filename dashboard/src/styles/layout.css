@@ -520,3 +520,28 @@ html[data-theme="dark"] ::-webkit-scrollbar-thumb {
 html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.18);
 }
+
+/* ==========================================================================
+   Reduced motion (A11Y-8)
+
+   Ten components handle this individually, but nothing covered the rest of the
+   app - most notably antd's own transitions (drawers, modals, dropdowns,
+   spinners), which no local rule can reach. This is the catch-all so that a user
+   who has asked their OS for less motion gets it everywhere, not only in the
+   components we happened to remember.
+
+   Deliberately blunt: near-zero durations rather than `animation: none`, because
+   some components read animation/transition events to know when they finished,
+   and removing the animation entirely can strand that logic. 0.01ms still fires
+   the events and still completes.
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
