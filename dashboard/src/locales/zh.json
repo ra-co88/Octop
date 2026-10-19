@@ -252,6 +252,8 @@
     "language": "语言",
     "theme": "主题",
     "memory": "记忆",
+    "skipToContent": "跳到主要内容",
+    "primaryNavigation": "主导航",
     "subagents": "子智能体",
     "personalization": "个性化",
     "mbti": "MBTI 人格",
@@ -5256,7 +5258,16 @@
     "remoteKindGroup": "{{name}}·{{kind}}",
     "more": "更多",
     "teamNeedsExpert": "当前是团队「{{name}}」，此页请选择专家",
-    "expertsRequired": "此页需要专家"
+    "expertsRequired": "此页需要专家",
+    "state": {
+      "running": "运行中",
+      "stopped": "已停止",
+      "created": "已创建",
+      "starting": "启动中",
+      "stopping": "停止中",
+      "failed": "失败",
+      "error": "错误"
+    }
   },
   "login": {
     "title": "登录",

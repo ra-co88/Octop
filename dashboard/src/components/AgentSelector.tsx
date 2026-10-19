@@ -104,12 +104,25 @@ function AgentChip({
   const title = disconnected
     ? `${agent.name} · ${t("agentSelector.disconnected")}`
     : agent.description ?? agent.name;
+  // The state dot is a bare coloured span. Without this it is announced as
+  // nothing and its colour is the only carrier of state — which for the
+  // red/green running-vs-failed pair is exactly what a deuteranope cannot read.
+  const stateLabel = disconnected
+    ? t("agentSelector.stateDisconnected", "Disconnected")
+    : t(`agentSelector.state.${agent.state}`, agent.state);
+
   return (
     <button
       type="button"
-      tabIndex={measure ? -1 : undefined}
+      role="tab"
+      aria-selected={measure ? undefined : active}
+      // Roving tabindex: one stop for the whole tablist, arrows move between
+      // tabs, so Tab does not walk through every chip.
+      tabIndex={measure ? -1 : active ? 0 : -1}
+      aria-label={`${agent.name} · ${stateLabel}`}
       data-chip-id={measure ? agent.agent_id : undefined}
       data-group-key={measure ? groupKey : undefined}
+      data-agent-id={measure ? undefined : agent.agent_id}
       className={`${active ? styles.chipActive : styles.chip}${
         disconnected ? ` ${styles.chipDisconnected}` : ""
       }`}
@@ -122,6 +135,7 @@ function AgentChip({
       <span
         className={styles.stateDot}
         data-state={disconnected ? "failed" : agent.state}
+        aria-hidden
       />
     </button>
   );
@@ -211,6 +225,46 @@ export default function AgentSelector({
   const barRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
+
+  // Roving focus across the tablist. Arrow keys move selection, matching the
+  // automatic-activation behaviour of an ARIA tablist; Home/End jump to the
+  // ends. Only the selected tab is in the tab order, so Tab leaves the group.
+  const handleTablistKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const keys = [
+      "ArrowRight",
+      "ArrowLeft",
+      "ArrowDown",
+      "ArrowUp",
+      "Home",
+      "End",
+    ];
+    if (!keys.includes(e.key)) return;
+    const chips = Array.from(
+      e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'),
+    );
+    if (chips.length === 0) return;
+    const current = chips.findIndex((c) => c === document.activeElement);
+    let next: number;
+    switch (e.key) {
+      case "Home":
+        next = 0;
+        break;
+      case "End":
+        next = chips.length - 1;
+        break;
+      case "ArrowRight":
+      case "ArrowDown":
+        next = current < 0 ? 0 : (current + 1) % chips.length;
+        break;
+      default:
+        next = current <= 0 ? chips.length - 1 : current - 1;
+    }
+    e.preventDefault();
+    chips[next]?.focus();
+    // Select as focus moves, so the tablist behaves like antd's Tabs.
+    const id = chips[next]?.getAttribute("data-agent-id");
+    if (id) setActiveAgent(id);
+  };
 
   useEffect(() => {
     if (loading) return;
@@ -366,7 +420,13 @@ export default function AgentSelector({
                   <ChevronDown size={12} aria-hidden />
                 </button>
               </div>
-              <div data-testid="agent-selector-chips" className={styles.track}>
+              <div
+                data-testid="agent-selector-chips"
+                className={styles.track}
+                role="tablist"
+                aria-label={heading}
+                onKeyDown={handleTablistKeyDown}
+              >
                 {visibleGroups.map((group) => renderGroup(group, false))}
               </div>
               {showMore ? (

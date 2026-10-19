@@ -675,78 +675,147 @@ export default function Sidebar({
   // Mobile: fixed overlay drawer
   if (isMobile) {
     return (
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          bottom: 0,
-          left: 0,
-          height: "auto",
-          width: EXPANDED_WIDTH,
-          boxSizing: "border-box",
-          paddingLeft: "env(safe-area-inset-left, 0px)",
-          background: "var(--fn-sidebar-bg)",
-          borderRight: "1px solid var(--fn-sidebar-border)",
-          zIndex: 100,
-          display: "flex",
-          flexDirection: "column",
-          transform: collapsed ? "translateX(-100%)" : "translateX(0)",
-          transition: "transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
-          boxShadow: collapsed ? "none" : "4px 0 20px rgba(0,0,0,0.10)",
-        }}
+      <nav
+        aria-label={t("nav.primaryNavigation", "Primary")}
+        style={{ display: "contents" }}
       >
         <div
           style={{
-            // Match Header: iOS PWA draws under the status bar (#664).
-            height: "calc(56px + env(safe-area-inset-top, 0px))",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "env(safe-area-inset-top, 0px) 12px 0 16px",
+            position: "fixed",
+            top: 0,
+            bottom: 0,
+            left: 0,
+            height: "auto",
+            width: EXPANDED_WIDTH,
             boxSizing: "border-box",
-            flexShrink: 0,
-            gap: 8,
+            paddingLeft: "env(safe-area-inset-left, 0px)",
+            background: "var(--fn-sidebar-bg)",
+            borderRight: "1px solid var(--fn-sidebar-border)",
+            zIndex: 100,
+            display: "flex",
+            flexDirection: "column",
+            transform: collapsed ? "translateX(-100%)" : "translateX(0)",
+            transition: "transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+            boxShadow: collapsed ? "none" : "4px 0 20px rgba(0,0,0,0.10)",
           }}
         >
           <div
             style={{
+              // Match Header: iOS PWA draws under the status bar (#664).
+              height: "calc(56px + env(safe-area-inset-top, 0px))",
               display: "flex",
               alignItems: "center",
-              gap: 6,
-              minWidth: 0,
-              flex: 1,
-            }}
-          >
-            {brandInner}
-          </div>
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-label={t("nav.collapseSidebar")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 32,
-              height: 32,
-              border: "none",
-              borderRadius: "var(--fn-radius-md)",
-              background: "transparent",
-              color: "var(--fn-text-tertiary)",
-              cursor: "pointer",
+              justifyContent: "space-between",
+              padding: "env(safe-area-inset-top, 0px) 12px 0 16px",
+              boxSizing: "border-box",
               flexShrink: 0,
+              gap: 8,
             }}
           >
-            <X size={16} strokeWidth={1.8} />
-          </button>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                minWidth: 0,
+                flex: 1,
+              }}
+            >
+              {brandInner}
+            </div>
+            <button
+              type="button"
+              onClick={onToggle}
+              aria-label={t("nav.collapseSidebar")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 32,
+                height: 32,
+                border: "none",
+                borderRadius: "var(--fn-radius-md)",
+                background: "transparent",
+                color: "var(--fn-text-tertiary)",
+                cursor: "pointer",
+                flexShrink: 0,
+              }}
+            >
+              <X size={16} strokeWidth={1.8} />
+            </button>
+          </div>
+
+          <div
+            style={{
+              flex: 1,
+              overflow:
+                isMinimal && minimalPane === "records" ? "hidden" : "auto",
+              minHeight: 0,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {navScrollBody}
+          </div>
+
+          <div
+            style={{
+              paddingBottom: "calc(8px + env(safe-area-inset-bottom, 0px))",
+            }}
+          >
+            {userFooter}
+            {customizer}
+          </div>
+        </div>
+      </nav>
+    );
+  }
+
+  // Desktop: custom sidebar with icon-only collapsed mode.
+  // Right border is drawn by MainLayout's RailEdgeControl.
+  return (
+    <nav
+      aria-label={t("nav.primaryNavigation", "Primary")}
+      style={{ display: "contents" }}
+    >
+      <div
+        style={{
+          width: isRailCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH,
+          minWidth: isRailCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH,
+          background: "var(--fn-sidebar-bg)",
+          borderRight: "none",
+          transition:
+            "width 0.25s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          flexShrink: 0,
+          alignSelf: "stretch",
+          minHeight: 0,
+        }}
+      >
+        <div
+          className={`${styles.sidebarBrand} ${DESKTOP_DRAG_REGION_CLASS}`}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            minWidth: 0,
+            padding: isRailCollapsed ? "12px 0" : "14px 14px 10px",
+            justifyContent: isRailCollapsed ? "center" : "flex-start",
+            flexShrink: 0,
+          }}
+        >
+          {brandInner}
         </div>
 
         <div
           style={{
             flex: 1,
-            overflow:
-              isMinimal && minimalPane === "records" ? "hidden" : "auto",
             minHeight: 0,
+            overflowY:
+              isMinimal && minimalPane === "records" ? "hidden" : "auto",
+            overflowX: "hidden",
             display: "flex",
             flexDirection: "column",
           }}
@@ -754,67 +823,9 @@ export default function Sidebar({
           {navScrollBody}
         </div>
 
-        <div
-          style={{
-            paddingBottom: "calc(8px + env(safe-area-inset-bottom, 0px))",
-          }}
-        >
-          {userFooter}
-          {customizer}
-        </div>
+        {userFooter}
+        {customizer}
       </div>
-    );
-  }
-
-  // Desktop: custom sidebar with icon-only collapsed mode.
-  // Right border is drawn by MainLayout's RailEdgeControl.
-  return (
-    <div
-      style={{
-        width: isRailCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH,
-        minWidth: isRailCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH,
-        background: "var(--fn-sidebar-bg)",
-        borderRight: "none",
-        transition:
-          "width 0.25s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-        flexShrink: 0,
-        alignSelf: "stretch",
-        minHeight: 0,
-      }}
-    >
-      <div
-        className={`${styles.sidebarBrand} ${DESKTOP_DRAG_REGION_CLASS}`}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          minWidth: 0,
-          padding: isRailCollapsed ? "12px 0" : "14px 14px 10px",
-          justifyContent: isRailCollapsed ? "center" : "flex-start",
-          flexShrink: 0,
-        }}
-      >
-        {brandInner}
-      </div>
-
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: isMinimal && minimalPane === "records" ? "hidden" : "auto",
-          overflowX: "hidden",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        {navScrollBody}
-      </div>
-
-      {userFooter}
-      {customizer}
-    </div>
+    </nav>
   );
 }

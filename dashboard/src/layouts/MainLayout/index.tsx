@@ -26,6 +26,9 @@ import RequirePermission from "../../components/RequirePermission";
 import { routeNeedsPermission } from "../../utils/permissions";
 import { useLayoutMode } from "../../context/LayoutModeContext";
 import { useDashboardPushToast } from "../../hooks/useDashboardPushToast";
+import { pageTitleFor } from "../pageTitle";
+import { useTranslation } from "react-i18next";
+import styles from "./index.module.less";
 
 const Chat = lazy(() => import("../../pages/Chat"));
 const WorkbenchPage = lazy(() => import("../../pages/Control/Workbench"));
@@ -33,6 +36,9 @@ const WorkbenchPage = lazy(() => import("../../pages/Control/Workbench"));
 const { Content } = Layout;
 
 const SIDEBAR_COLLAPSED_KEY = "octop:sidebar:collapsed";
+
+/** Focus target for the skip link. antd's Content renders <main>. */
+export const MAIN_CONTENT_ID = "octop-main-content";
 
 function getSavedCollapsed(): boolean {
   try {
@@ -59,6 +65,7 @@ export default function MainLayout() {
   const selectedKey = resolveSelectedKey(currentPath);
   const isMobile = useIsMobile();
   const { layoutMode } = useLayoutMode();
+  const { t } = useTranslation();
   useDashboardPushToast();
   useKeyboardOffset();
   const isMinimalLayout = layoutMode === "minimal";
@@ -67,6 +74,29 @@ export default function MainLayout() {
     [...FULLSCREEN_PATHS].some((p) => currentPath.startsWith(p + "/")) ||
     (isMobile && MOBILE_FULLSCREEN_PATHS.has(currentPath));
   const onWorkbench = isWorkbenchPath(currentPath);
+
+  // Reflect the current section in the tab title. The app name is set once in
+  // App.tsx; without this every tab, bookmark and history entry reads the same.
+  useEffect(() => {
+    document.title = pageTitleFor(t("app.pageTitle"), selectedKey, t);
+  }, [t, selectedKey]);
+
+  // First focusable element on the page: lets a keyboard user jump past the
+  // sidebar (which is ~19 nav items) straight to the content.
+  const skipLink = (
+    <a
+      href={`#${MAIN_CONTENT_ID}`}
+      className={styles.skipLink}
+      onClick={(e) => {
+        // Move focus as well as the scroll position, otherwise the next Tab
+        // continues from the link rather than from the content.
+        e.preventDefault();
+        document.getElementById(MAIN_CONTENT_ID)?.focus();
+      }}
+    >
+      {t("nav.skipToContent", "Skip to content")}
+    </a>
+  );
 
   const [collapsed, setCollapsed] = useState(() => getSavedCollapsed());
   const [chatSidebarOpen, setChatSidebarOpen] = useChatSidebarOpen();
@@ -196,6 +226,8 @@ export default function MainLayout() {
             overflow: "hidden",
           }}
         >
+          {skipLink}
+
           {/* Mobile overlay backdrop */}
           {isMobile && !collapsed && (
             <div
@@ -285,6 +317,10 @@ export default function MainLayout() {
               }}
             >
               <Content
+                id={MAIN_CONTENT_ID}
+                // Focus target for the skip link; -1 keeps it out of the tab
+                // order while still being focusable programmatically.
+                tabIndex={-1}
                 className="page-container"
                 style={{
                   background: isChatRoute
