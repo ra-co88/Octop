@@ -3,6 +3,7 @@ import type { DefaultOptionType } from "antd/es/select";
 import type { MenuProps } from "antd";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { ChevronDown } from "lucide-react";
 import { useAgent, type OctopAgent } from "../context/AgentContext";
 import { ownedSoloExperts, ownedTeamAgents } from "../utils/sharedExpert";
@@ -109,7 +110,7 @@ function AgentChip({
   // red/green running-vs-failed pair is exactly what a deuteranope cannot read.
   const stateLabel = disconnected
     ? t("agentSelector.stateDisconnected", "Disconnected")
-    : t(`agentSelector.state.${agent.state}`, agent.state);
+    : stateLabelFor(t, agent.state);
 
   return (
     <button
@@ -160,6 +161,7 @@ function moreItemLabel(agent: OctopAgent, disconnectedLabel: string) {
       <span
         className={styles.stateDot}
         data-state={disconnected ? "failed" : agent.state}
+        aria-hidden
       />
     </span>
   );
@@ -314,16 +316,19 @@ export default function AgentSelector({
   if (selectable.length === 0 && allTeams.length === 0) return null;
 
   const disconnectedLabel = t("agentSelector.disconnected");
+  const stateLabel = (state: string) => stateLabelFor(t, state);
   const selectOptions: DefaultOptionType[] = showGroupLabels
     ? labeledGroups.map((group) => ({
         label: group.disconnected
           ? `${group.label} · ${disconnectedLabel}`
           : group.label,
         options: group.agents.map((agent) =>
-          selectOption(agent, disconnectedLabel),
+          selectOption(agent, disconnectedLabel, stateLabel),
         ),
       }))
-    : selectable.map((agent) => selectOption(agent, disconnectedLabel));
+    : selectable.map((agent) =>
+        selectOption(agent, disconnectedLabel, stateLabel),
+      );
   const hint = activeIsHiddenTeam
     ? t("agentSelector.teamNeedsExpert", {
         name: activeAgent?.name ?? "",
@@ -487,9 +492,12 @@ export default function AgentSelector({
                     ) : null}
                   </div>
                   <RemoteExpertHint agent={agent} compact />
+                  {/* Decorative: the option's accessible name comes from
+                      optionLabelProp="label", which already carries the state. */}
                   <span
                     className={styles.stateDot}
                     data-state={disconnected ? "failed" : agent.state}
+                    aria-hidden
                   />
                 </div>
               );
@@ -502,7 +510,17 @@ export default function AgentSelector({
   );
 }
 
-function selectOption(agent: OctopAgent, disconnectedLabel: string) {
+/** Localized state name. Falls back to the raw state so an unmapped state from
+ *  the API still produces a readable label rather than an empty string. */
+function stateLabelFor(t: TFunction, state: string): string {
+  return t(`agentSelector.state.${state}`, state);
+}
+
+function selectOption(
+  agent: OctopAgent,
+  disconnectedLabel: string,
+  stateLabel: (state: string) => string,
+) {
   const accent = agentAccent(agent);
   const disconnected = Boolean(agent.bridge_disconnected);
   return {
@@ -519,6 +537,11 @@ function selectOption(agent: OctopAgent, disconnectedLabel: string) {
         <RemoteExpertHint agent={agent} compact />
       </span>
     ),
-    title: disconnected ? `${agent.name} · ${disconnectedLabel}` : agent.name,
+    // Name carries the state, not just the disconnected case: the dot beside it
+    // is decorative and aria-hidden, so this is the only signal reaching a
+    // screen reader — and the state is what a user is choosing between.
+    title: `${agent.name} · ${
+      disconnected ? disconnectedLabel : stateLabel(agent.state)
+    }`,
   };
 }

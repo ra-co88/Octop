@@ -53,6 +53,109 @@ describe("<SkillImportModal /> local zip import", () => {
     });
   });
 
+  it("exposes the drop zone as a keyboard-reachable button (A11Y-15)", async () => {
+    // Before: a <div> with onClick only — no role, not focusable, Enter/Space
+    // did nothing, so the drop zone was unreachable without a mouse.
+    const user = userEvent.setup();
+    render(
+      <SkillImportModal
+        open
+        importing={false}
+        onClose={vi.fn()}
+        onImportUrl={vi.fn()}
+        onImportZip={vi.fn()}
+      />,
+    );
+    await switchToZipMode(user);
+
+    const zone = screen.getByRole("button", {
+      name: "skills.zipDragDropHint",
+    });
+    expect(zone).toBeInTheDocument();
+    expect(zone).toHaveAttribute("tabindex", "0");
+    expect(zone).toHaveAttribute("aria-disabled", "false");
+  });
+
+  it("opens the file picker on Enter and on Space (A11Y-15)", async () => {
+    const user = userEvent.setup();
+    render(
+      <SkillImportModal
+        open
+        importing={false}
+        onClose={vi.fn()}
+        onImportUrl={vi.fn()}
+        onImportZip={vi.fn()}
+      />,
+    );
+    await switchToZipMode(user);
+
+    const input = document.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    const click = vi.spyOn(input, "click");
+
+    const zone = screen.getByRole("button", {
+      name: "skills.zipDragDropHint",
+    });
+    zone.focus();
+    expect(zone).toHaveFocus();
+
+    await user.keyboard("{Enter}");
+    expect(click).toHaveBeenCalledTimes(1);
+
+    await user.keyboard(" ");
+    expect(click).toHaveBeenCalledTimes(2);
+  });
+
+  it("is not operable while busy (A11Y-15)", async () => {
+    // The busy window is internal (parsing runs inside handleFileSelect), so it
+    // cannot be driven from outside without faking a slow parser. A slow parser
+    // is the honest way to observe it.
+    let release: (() => void) | undefined;
+    mockedParse.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = () =>
+            resolve({ skills: [], errors: [], warnings: [] } as never);
+        }),
+    );
+
+    const user = userEvent.setup();
+    render(
+      <SkillImportModal
+        open
+        importing={false}
+        onClose={vi.fn()}
+        onImportUrl={vi.fn()}
+        onImportZip={vi.fn()}
+      />,
+    );
+    await switchToZipMode(user);
+
+    const input = document.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    setInputFiles(input, [await makeZipFile({ "demo/SKILL.md": "x" })]);
+
+    // parsing only starts on confirm; the hung parser holds busy=true.
+    await user.click(
+      screen.getByRole("button", { name: "skills.importSkills" }),
+    );
+
+    const zone = await screen.findByRole("button", {
+      name: "skills.zipDragDropHint",
+    });
+    await waitFor(() => expect(zone).toHaveAttribute("aria-disabled", "true"));
+    expect(zone).toHaveAttribute("tabindex", "-1");
+
+    // A click while busy must not open the picker.
+    const click = vi.spyOn(input, "click");
+    await user.click(zone);
+    expect(click).not.toHaveBeenCalled();
+
+    release?.();
+  });
+
   it("imports a selected zip with overwrite flag", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

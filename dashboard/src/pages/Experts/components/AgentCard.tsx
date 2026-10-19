@@ -43,16 +43,20 @@ import type { PublishedExpert } from "../../../api/modules/publishedExperts";
 import PublishTemplateButton from "./PublishTemplateButton";
 import AgentMoreActions from "./AgentMoreActions";
 
+/* State colours, shared with AgentSelector's dots (A11Y-6b) so one agent state
+   reads the same everywhere. The saturated antd #52c41a / #ff4d4f pair sat at
+   only 1.10:1 under deuteranopia; these darker values separate better, and the
+   label text next to the dot carries the state regardless. */
 const STATE_META: Record<
   string,
   { color: string; bg: string; spin?: boolean }
 > = {
-  running: { color: "#52c41a", bg: "rgba(82,196,26,0.12)" },
+  running: { color: "#15803d", bg: "rgba(21,128,61,0.12)" },
   stopped: { color: "#8c8c8c", bg: "rgba(140,140,140,0.10)" },
   created: { color: "#8c8c8c", bg: "rgba(140,140,140,0.10)" },
-  failed: { color: "#ff4d4f", bg: "rgba(255,77,79,0.10)" },
-  starting: { color: "#1677ff", bg: "rgba(22,119,255,0.10)", spin: true },
-  stopping: { color: "#1677ff", bg: "rgba(22,119,255,0.10)", spin: true },
+  failed: { color: "#b91c1c", bg: "rgba(185,28,28,0.10)" },
+  starting: { color: "#b45309", bg: "rgba(180,83,9,0.10)", spin: true },
+  stopping: { color: "#b45309", bg: "rgba(180,83,9,0.10)", spin: true },
 };
 
 function getStateMeta(state: string) {

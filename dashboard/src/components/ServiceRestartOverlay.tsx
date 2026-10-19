@@ -101,7 +101,8 @@ export default function ServiceRestartOverlay({
       <div className={styles.panel} style={PANEL_STYLE}>
         {phase === "confirm" && (
           <>
-            <Power size={28} className={styles.confirmIcon} />
+            {/* Decorative: the adjacent text carries the meaning. */}
+            <Power size={28} className={styles.confirmIcon} aria-hidden />
             <p style={TITLE_STYLE}>
               {t("advancedSettings.update.restartConfirmTitle")}
             </p>
@@ -133,7 +134,7 @@ export default function ServiceRestartOverlay({
         )}
         {phase === "success" && (
           <>
-            <CheckCircle size={28} className={styles.successIcon} />
+            <CheckCircle size={28} className={styles.successIcon} aria-hidden />
             <p style={TITLE_STYLE}>
               {t("advancedSettings.update.restartSuccess")}
             </p>
@@ -144,7 +145,7 @@ export default function ServiceRestartOverlay({
         )}
         {phase === "timeout" && (
           <>
-            <AlertTriangle size={28} className={styles.warnIcon} />
+            <AlertTriangle size={28} className={styles.warnIcon} aria-hidden />
             <p style={TITLE_STYLE}>
               {t("advancedSettings.update.restartTimeout")}
             </p>
