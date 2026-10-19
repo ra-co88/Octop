@@ -35,6 +35,12 @@ export function CopyableResourceId({
     <Tooltip title={copyTitle ?? t("common.copy")}>
       <button
         type="button"
+        // The inline variant truncates with an ellipsis and had no title, so a
+        // long id was unrecoverable for a sighted user (the accessible name did
+        // carry it, so screen readers were fine). The title restores the full
+        // text on hover. It goes on the button, not the span, so it applies to
+        // whichever text node is actually clipped.
+        title={`${label}: ${value}`}
         className={`${inline ? styles.inlineRoot : styles.root}${
           className ? ` ${className}` : ""
         }`}
