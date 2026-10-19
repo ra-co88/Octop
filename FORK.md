@@ -49,6 +49,41 @@ documented in the changelog.
 | **Packaging** | The Tencent Cloud purchase links are removed from the README. Upstream's Cloud deployment documentation is kept. |
 | **Versioning** | Published as `<upstream>+ra.N` (PEP 440 local version). |
 
+## Divergences to re-check each sync
+
+Some lines here exist only because upstream has not fixed something yet. Each is a
+**candidate for retirement**: if upstream ever fixes it their own way, our line should
+be **dropped**, not carried forever. Keeping this list is what makes that a decision
+instead of an archaeology project.
+
+The rule from [Strategy](#strategy) applies — retiring a fork-only fix to protect
+mergeability is a legitimate, successful outcome, recorded as *superseded* so it does
+not later read as a regression.
+
+| Divergence | Where | Retire when | Guard |
+|---|---|---|---|
+| Log retention: `backupCount=0` | `src/octop/infra/server.py`, `_build_log_handler` | Upstream stops letting `getFilesToDelete()` delete the plain file `delaycompress` preserves | `tests/unit/test_fork_divergences.py` |
+| `wizard_password_path` omitted | `src/octop/api/routers/setup.py`, `/setup/status` | Upstream stops returning an absolute filesystem path from that unauthenticated endpoint | none — re-read on sync |
+
+**Already retired (do not resurrect):**
+
+| Item | Why it was dropped |
+|---|---|
+| **SEC-1** — auth hardening on `POST /setup/resume-wizard` | Upstream `cc687bdd` (#2074) **deleted the endpoint**, because an anonymous POST could mint a bearer that replaced the active model on a single-user install. Deletion is strictly stronger than adding authorization to it, so our fix became unreachable code. |
+| `setup_completed_at` flag | Upstream's `count() > 1` check replaced it and **fails closed**; our flag **failed open** when `/setup/finish` never ran. Ours was the weaker of the two. |
+
+### How to use the guard
+
+`tests/unit/test_fork_divergences.py` fails when upstream edits code we diverged
+from. **A failure is a prompt to look, not automatically a bug.** Read upstream's
+version first:
+
+- **Upstream fixed it properly** → drop our line, move the row above to the retired
+  table with the commit that superseded it.
+- **Upstream changed the surrounding code** → re-apply our line and re-run the guard.
+- **Our line was lost in a conflict resolution** → restore it. This is the silent
+  failure the guard exists to catch.
+
 ## Versioning
 
 Versions carry a **local version segment** — `1.0.2+ra.3` means *upstream 1.0.2 plus
@@ -75,6 +110,17 @@ Resolve conflicts by hand, then:
 make all                   # format + lint + typecheck + pytest
 cd dashboard && npx vitest run
 ```
+
+**Then re-check the divergence guards** — these are the point of the sync, not an
+afterthought, because they are what turns "the merge went clean" into "the merge
+went clean *and* we still know which lines are ours and why":
+
+```bash
+uv run pytest tests/unit/test_fork_divergences.py -q
+```
+
+Walk every row of [Divergences to re-check each sync](#divergences-to-re-check-each-sync).
+A clean merge is exactly when a lost divergence is hardest to notice.
 
 ### Watch for silent losses
 
