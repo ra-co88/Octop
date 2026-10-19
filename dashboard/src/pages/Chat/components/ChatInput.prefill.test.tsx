@@ -162,7 +162,7 @@ describe("ChatInput prefill clear-on-send", () => {
       />,
     );
 
-    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    const textarea = screen.getByRole("combobox") as HTMLTextAreaElement;
     const prefill = "请填写收件人：";
 
     act(() => {
@@ -214,7 +214,7 @@ describe("ChatInput prefill clear-on-send", () => {
       />,
     );
 
-    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    const textarea = screen.getByRole("combobox") as HTMLTextAreaElement;
     const prefill = "请填写收件人：";
     parentPrefill = prefill;
 
@@ -260,7 +260,7 @@ describe("ChatInput prefill clear-on-send", () => {
     };
     const { rerender } = render(<ChatInput {...props} agentId="agent-1" />);
 
-    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    const textarea = screen.getByRole("combobox") as HTMLTextAreaElement;
     expect(textarea.value).toBe("previous expert prompt");
 
     rerender(<ChatInput {...props} agentId="agent-2" />);
@@ -283,7 +283,7 @@ describe("ChatInput prefill clear-on-send", () => {
         threadId="thread-1"
       />,
     );
-    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    const textarea = screen.getByRole("combobox") as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: "second question" } });
     fireEvent.click(screen.getByRole("button", { name: "send" }));
     expect(onSend).toHaveBeenCalledWith("second question", undefined);
