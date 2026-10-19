@@ -88,13 +88,23 @@ describe("AuthGuard offline boot", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText("protected-shell")).toBeInTheDocument();
-    await waitFor(() => {
-      expect(authApi.getAuthStatus).toHaveBeenCalledTimes(1);
-    });
-    // Give route-driven navigate identity churn a tick; gate must not re-run.
+    // Wait for the settled state via waitFor, not findByText.
+    //
+    // This assertion used to be `await screen.findByText("protected-shell")`
+    // followed by `.toBeInTheDocument()` — an instantaneous snapshot taken
+    // against a node this very test expects to churn: NavProbe navigates on
+    // every render, so the shell can be briefly replaced by the gate's spinner.
+    // When that happened the element was found, the promise resolved, and the
+    // node was detached before the matcher ran — failing in ~25ms, far too fast
+    // to be the 1000ms timeout, and persisting even at 5000ms.
+    //
+    // waitFor re-queries until the assertion passes, so it asserts the state the
+    // test actually cares about — "gate must not re-run" — instead of one
+    // arbitrary instant. The duplicate snapshot was also redundant with the
+    // waitFor immediately below it.
     await waitFor(() => {
       expect(screen.getByText("protected-shell")).toBeInTheDocument();
+      expect(authApi.getAuthStatus).toHaveBeenCalledTimes(1);
     });
     expect(authApi.getAuthStatus).toHaveBeenCalledTimes(1);
     expect(authApi.me).toHaveBeenCalledTimes(1);
