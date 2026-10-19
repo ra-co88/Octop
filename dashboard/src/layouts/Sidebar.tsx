@@ -167,6 +167,7 @@ function NavItemButton({
         type="button"
         className={styles.navItemMain}
         onClick={() => onNavigate(item.path)}
+        aria-current={active ? "page" : undefined}
         style={{
           color: active
             ? "var(--fn-sidebar-item-active-text)"
