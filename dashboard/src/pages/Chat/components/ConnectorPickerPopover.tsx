@@ -45,6 +45,7 @@ export default function ConnectorPickerPopover({
       items={connectors}
       filterFn={filterFn}
       searchPlaceholder={t("connectors.chatPickerSearch")}
+      ariaLabel={t("connectors.chatPickerSearch")}
       emptyMessage={t("connectors.chatEmptyHint")}
       width="narrow"
       footerIcon={<Settings2 size={15} aria-hidden />}

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { Search } from "lucide-react";
 import { useFilteredList } from "../../hooks/useFilteredList";
 import styles from "./picker.module.less";
@@ -22,6 +23,13 @@ interface SearchablePickerPanelProps<T> {
   footerMuted?: boolean;
   /** Optional row(s) rendered between the list and the primary footer. */
   beforeFooter?: ReactNode;
+  /**
+   * Names the search field and the option group. These panels are multi-select
+   * toggles inside a popover, so their items are buttons with aria-pressed
+   * rather than listbox options — the label is what tells a screen reader what
+   * the set of toggles controls.
+   */
+  ariaLabel: string;
 }
 
 export default function SearchablePickerPanel<T>({
@@ -38,7 +46,9 @@ export default function SearchablePickerPanel<T>({
   onFooterClick,
   footerMuted = false,
   beforeFooter,
+  ariaLabel,
 }: SearchablePickerPanelProps<T>) {
+  const { t } = useTranslation();
   const { query, setQuery, filtered } = useFilteredList(items, filterFn);
   const panelClass =
     width === "compact"
@@ -53,6 +63,9 @@ export default function SearchablePickerPanel<T>({
         <input
           type="search"
           className={styles.searchInput}
+          // The placeholder is not an accessible name: it disappears once the
+          // user types, and some AT ignores it entirely.
+          aria-label={ariaLabel}
           placeholder={searchPlaceholder}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -60,7 +73,25 @@ export default function SearchablePickerPanel<T>({
         <Search size={15} className={styles.searchIcon} aria-hidden />
       </div>
 
-      <div className={styles.list} data-picker-list="">
+      {/* Filtering is visually obvious and was completely silent to assistive
+          tech: the list can shrink to empty with no announcement. */}
+      <div
+        className={styles.searchStatus}
+        role="status"
+        aria-live="polite"
+        data-picker-status=""
+      >
+        {t("chat.pickerResultCount", "{{count}} results", {
+          count: filtered.length,
+        })}
+      </div>
+
+      <div
+        className={styles.list}
+        data-picker-list=""
+        role="group"
+        aria-label={ariaLabel}
+      >
         {filtered.length === 0 ? (
           <div className={styles.empty}>{emptyMessage}</div>
         ) : (

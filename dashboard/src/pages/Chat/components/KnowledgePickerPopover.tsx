@@ -43,6 +43,7 @@ export default function KnowledgePickerPopover({
       items={knowledgeBases}
       filterFn={filterFn}
       searchPlaceholder={t("chat.knowledgePickerSearch")}
+      ariaLabel={t("chat.knowledgePickerSearch")}
       emptyMessage={t("chat.knowledgePickerEmpty")}
       width="narrow"
       footerIcon={
