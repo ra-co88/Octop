@@ -202,17 +202,28 @@ describe("TrajectoryInspector", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Preview" }));
 
-    await waitFor(() => {
-      expect(eventMock).toHaveBeenCalledWith("A1", "T1", "ctx-1");
-      const preview = screen.getByTestId("trajectory-preview");
-      expect(preview).toHaveTextContent("Prefer BackendWorkspace paths");
-      // Rendered markdown — not the raw ## / ** markers.
-      expect(preview.querySelector("h2")).toHaveTextContent("Rules");
-      expect(preview.querySelector("strong")).toHaveTextContent(
-        "BackendWorkspace",
-      );
-      expect(preview).not.toHaveTextContent("summary: meta");
-    });
+    // Explicit timeout: this assertion waits on a DYNAMIC IMPORT, not on a state
+    // update. TrajectoryInspector renders the Preview tab through LazyMarkdown
+    // (React.lazy -> import("./index")), so until the chunk resolves the DOM
+    // holds a plain-text Suspense fallback and the markdown selectors below
+    // cannot match. A cold import of that chunk measures ~2.1s, which is over
+    // twice waitFor's 1000ms default — so with the default this test passed only
+    // when another file in the same worker had already warmed the chunk, and
+    // failed intermittently otherwise. See .agents/audit/vitest-intermittency.md.
+    await waitFor(
+      () => {
+        expect(eventMock).toHaveBeenCalledWith("A1", "T1", "ctx-1");
+        const preview = screen.getByTestId("trajectory-preview");
+        expect(preview).toHaveTextContent("Prefer BackendWorkspace paths");
+        // Rendered markdown — not the raw ## / ** markers.
+        expect(preview.querySelector("h2")).toHaveTextContent("Rules");
+        expect(preview.querySelector("strong")).toHaveTextContent(
+          "BackendWorkspace",
+        );
+        expect(preview).not.toHaveTextContent("summary: meta");
+      },
+      { timeout: 5000 },
+    );
   });
 
   it("labels the middle tab Result for tool events", () => {

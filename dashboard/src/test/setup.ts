@@ -108,6 +108,43 @@ if (typeof window !== "undefined") {
     ).IntersectionObserver = _IntersectionObserver;
   }
 
+  // DOMMatrix — pdfjs-dist (via react-pdf) instantiates one at MODULE SCOPE:
+  //   node_modules/pdfjs-dist/build/pdf.mjs:9387  const SCALE_MATRIX = new DOMMatrix();
+  // jsdom does not ship DOMMatrix, so merely *importing* react-pdf throws
+  // "ReferenceError: DOMMatrix is not defined" during collection. That is worse
+  // than a failing assertion: vitest reports the whole FILE as failed with
+  // "Tests: no tests", so the real tests never run.
+  //
+  // It reached far beyond the PDF components — a plain .ts test with no DOM
+  // (pages/Agent/Skills/skillMarkdown.test.ts) broke because it imports a helper
+  // from components/SkillDrawer, which renders react-pdf. Same for
+  // AuthGuard.test.tsx and Settings/Models ModelListEditor.test.tsx.
+  //
+  // Minimal by design: the only module-scope constructor is the no-arg
+  // `new DOMMatrix()`, and only `.a` and `.d` are read from it
+  // (SCALE_MATRIX.a / SCALE_MATRIX.d, both identity === 1). A full transform
+  // implementation would be untested scaffolding; tests that genuinely exercise
+  // PDF rendering should stub what they need explicitly.
+  class _DOMMatrix {
+    a = 1;
+    b = 0;
+    c = 0;
+    d = 1;
+    e = 0;
+    f = 0;
+    constructor(init?: string | number[]) {
+      if (Array.isArray(init) && init.length >= 6) {
+        [this.a, this.b, this.c, this.d, this.e, this.f] = init;
+      }
+    }
+  }
+  if (!("DOMMatrix" in window)) {
+    (window as unknown as { DOMMatrix: typeof _DOMMatrix }).DOMMatrix =
+      _DOMMatrix;
+    (globalThis as unknown as { DOMMatrix: typeof _DOMMatrix }).DOMMatrix =
+      _DOMMatrix;
+  }
+
   // jsdom doesn't implement ``getComputedStyle().transition`` properly,
   // so antd's wave / motion can throw — silence that one noisy console
   // warning without hiding real errors.
