@@ -252,6 +252,8 @@
     "language": "Language",
     "theme": "Theme",
     "memory": "Memory",
+    "skipToContent": "Skip to content",
+    "primaryNavigation": "Primary",
     "personalization": "Personalization",
     "subagents": "Subagents",
     "mbti": "MBTI Personality",
@@ -5256,7 +5258,16 @@
     "remoteKindGroup": "{{name}}·{{kind}}",
     "more": "More",
     "teamNeedsExpert": "\"{{name}}\" is a team. Choose an expert for this page.",
-    "expertsRequired": "This page needs an expert"
+    "expertsRequired": "This page needs an expert",
+    "state": {
+      "running": "Running",
+      "stopped": "Stopped",
+      "created": "Created",
+      "starting": "Starting",
+      "stopping": "Stopping",
+      "failed": "Failed",
+      "error": "Error"
+    }
   },
   "login": {
     "title": "Sign in",
