@@ -124,6 +124,35 @@ A clean merge is exactly when a lost divergence is hardest to notice.
 
 ### Watch for silent losses
 
+### Check that CI actually ran
+
+**GitHub Support disabled Actions on this repository on 2026-10-12** and it cannot be
+re-enabled from settings or the API (the permission flag reads `enabled: true` while the
+dispatch endpoint returns `HTTP 422 Actions has been disabled for this repository`).
+
+The dangerous part is that it failed **silently and inverted**: every dashboard surface
+except the runs list still reads healthy. Nothing says "CI is off". The only signal is the
+**absence** of runs.
+
+So on every sync (and ideally weekly), assert that runs are still happening:
+
+```bash
+gh run list --repo ra-co88/Octop --limit 1 --json createdAt --jq '.[0].createdAt'
+# if this is more than a few days old and you have pushed recently, CI is not running
+```
+
+While Actions is down, "green" means **green locally** — one machine, one OS. The repo
+treats Windows as part of the ship bar (`AGENTS.md` §7) and CI is the only thing that
+runs it, so Windows is unverified for everything merged after 2026-10-12. Compensate by
+running the frontend suite by hand, which neither CI nor `make all` invokes:
+
+```bash
+cd dashboard && npx vitest run
+```
+
+See `.agents/audit/actions-disabled.md`.
+
+
 A file can merge **cleanly** while upstream has rewritten it underneath. A visual
 diff will not prompt anyone to look, so re-verify anything you have customised in a
 file upstream actively changes. This has already bitten the accessibility work on
