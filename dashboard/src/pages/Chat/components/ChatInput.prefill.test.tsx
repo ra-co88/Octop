@@ -59,6 +59,11 @@ vi.mock("../hooks/chatStore", () => ({
   readInputDraft: (agentId: string) =>
     agentId === "agent-2" ? "target expert draft" : "",
   writeInputDraft: vi.fn(),
+  // Upstream's mid-turn steering (#1988/#2037) subscribes to restore events
+  // from this module; ChatInput imports it unconditionally, so the exhaustive
+  // mock must expose it. Returns an unsubscribe fn, matching the real
+  // onSteerRestore contract used as a useEffect cleanup.
+  onSteerRestore: () => () => {},
 }));
 
 vi.mock("./ChatInputPreviewBar", () => ({

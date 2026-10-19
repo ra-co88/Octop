@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 from pathlib import Path
 from typing import Any
 
@@ -109,23 +108,15 @@ def _enforce_wizard_open(server: Any) -> None:
         raise OctopError(ErrorCode.SETUP_REQUIRED, "setup already completed", status=410)
 
 
-def _setup_completed(server: Any) -> bool:
-    """True once ``/setup/finish`` has run (persisted flag, not a row count)."""
-    services = getattr(server, "services", None)
-    if services is not None and services.settings_repo is not None:
-        return services.settings_repo.get("setup_completed_at") is not None
-    return False
-
-
-def _mark_setup_completed(server: Any) -> None:
-    services = getattr(server, "services", None)
-    if services is not None and services.settings_repo is not None:
-        services.settings_repo.set("setup_completed_at", str(int(time.time())))
-
-
 def _enforce_wizard_token_phase(server: Any) -> None:
-    """Allow wizard token operations while initial setup is still in progress."""
-    if _setup_completed(server):
+    """Allow wizard token operations while initial setup is still in progress.
+
+    Upstream's row-count heuristic (blocks once more than one user exists) is
+    kept over the fork's persisted `setup_completed_at` flag: the flag fails
+    *open* if `/setup/finish` never ran, whereas the count fails *closed*.
+    """
+    um = server.user_manager
+    if um is not None and um.count() > 1:
         raise OctopError(ErrorCode.SETUP_REQUIRED, "setup already completed", status=410)
 
 
@@ -156,7 +147,7 @@ def _authorize_setup_mid_wizard(authorization: str | None, server: Any) -> str |
     if server.wizard_tokens.validate(token):
         return token
     um = server.user_manager
-    if um is not None and um.count() == 1 and not _setup_completed(server):
+    if um is not None and um.count() == 1:
         try:
             user = resolve_user_from_token(server, token)
             if user.is_admin:
@@ -258,7 +249,8 @@ async def status(server: Any = Depends(get_server)) -> dict[str, Any]:
         "setup_required": setup_required,
         "wizard_password_required": password_required,
         "wizard_password_exists": (
-            password_required and _wizard.read_password(Path.home()) is not None
+            password_required
+            and _wizard.read_password(server.paths.root, legacy_home=Path.home()) is not None
         ),
         "database_driver": database_driver,
         "database_bound": server.database_bound,
@@ -345,7 +337,7 @@ async def verify_password(
         server.wizard_tokens.record_attempt(client_ip)
     except RateLimited:
         raise OctopError(ErrorCode.SETUP_RATE_LIMITED, "too many attempts") from None
-    expected = _wizard.read_password(Path.home())
+    expected = _wizard.read_password(server.paths.root, legacy_home=Path.home())
     if expected is None or body.password != expected:
         raise OctopError(ErrorCode.SETUP_PASSWORD_WRONG, "wrong password")
     token, ttl = server.wizard_tokens.issue()
@@ -391,48 +383,6 @@ async def initial_admin(
         "access_token": access_token,
         "expires_in": ttl,
     }
-
-
-@router.post("/setup/resume-wizard", summary="Issue a fresh wizard token mid-setup")
-async def resume_wizard(
-    request: Request,
-    server: Any = Depends(get_server),
-    authorization: str | None = Header(default=None),
-) -> dict[str, Any]:
-    """Issue a new wizard token after the admin exists but before finish.
-
-    Requires credentials: the wizard password, a still-valid wizard token, or
-    the mid-wizard admin JWT. Never mintable anonymously.
-    """
-    _enforce_wizard_token_phase(server)
-    require_database(server)
-    assert server.user_manager is not None
-    if server.user_manager.count() == 0:
-        raise OctopError(ErrorCode.SETUP_TOKEN_INVALID, "admin not created yet", status=400)
-    client_ip = request.client.host if request.client else "unknown"
-    try:
-        server.wizard_tokens.record_attempt(client_ip)
-    except RateLimited:
-        raise OctopError(ErrorCode.SETUP_RATE_LIMITED, "too many attempts") from None
-    try:
-        token = _extract_bearer(authorization)
-    except OctopError:
-        token = ""
-    authorized = server.wizard_tokens.validate(token)
-    if not authorized:
-        expected = _wizard.read_password(Path.home())
-        if expected is not None and token == expected:
-            authorized = True
-    if not authorized:
-        try:
-            user = resolve_user_from_token(server, token)
-            authorized = user.is_admin
-        except OctopError:
-            authorized = False
-    if not authorized:
-        raise OctopError(ErrorCode.SETUP_TOKEN_INVALID, "wizard password or token required")
-    issued, ttl = server.wizard_tokens.issue()
-    return {"wizard_token": issued, "expires_in": ttl}
 
 
 @router.post("/setup/test-provider", summary="Test provider draft connectivity")
@@ -488,5 +438,4 @@ async def finish(
             logger.warning("could not auto-create default agent: %s", exc)
     if wizard_token is not None:
         server.wizard_tokens.consume(wizard_token)
-    _mark_setup_completed(server)
     return {"ok": True}

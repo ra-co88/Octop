@@ -121,3 +121,5 @@ scripts/lh_image_install_octop_tencentos.sh
 # Local security audit report (contains exploit reproductions; not for upstream)
 audit-report.html
 audit-report.pdf
+# Local conda environment
+.conda-octop/

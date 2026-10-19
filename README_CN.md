@@ -15,11 +15,12 @@
 <p align="center">
   <a href="https://www.python.org/downloads/"><img alt="Python 3.12+" src="https://img.shields.io/badge/python-3.12%2B-blue?logo=python&logoColor=white" /></a>
   <a href="https://github.com/TencentCloud/Octop/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green" /></a>
-  <a href="https://github.com/TencentCloud/Octop/releases"><img alt="Version" src="https://img.shields.io/badge/version-1.0.2b7-orange" /></a>
+  <a href="https://github.com/TencentCloud/Octop/releases"><img alt="Version" src="https://img.shields.io/badge/version-1.0.2-orange" /></a>
   <a href="https://pypi.org/project/octop/"><img src="https://img.shields.io/pypi/v/octop" alt="PyPI" /></a>
   <a href="https://github.com/astral-sh/ruff"><img alt="Code Style: Ruff" src="https://img.shields.io/badge/code%20style-ruff-000000?logo=ruff&logoColor=white" /></a>
   <a href="https://github.com/TencentCloud/Octop"><img alt="GitHub stars" src="https://img.shields.io/github/stars/TencentCloud/Octop?style=social" /></a>
   <a href="https://github.com/TencentCloud/Octop/fork"><img alt="GitHub forks" src="https://img.shields.io/github/forks/TencentCloud/Octop?style=social" /></a>
+  <a href="https://discord.gg/QnWdhJxq9h"><img alt="Discord" src="https://img.shields.io/badge/Discord-%E5%8A%A0%E5%85%A5-5865F2?logo=discord&logoColor=white" /></a>
 </p>
 
 <p align="center">
@@ -47,11 +48,11 @@
 | | 特性 | 说明 |
 |---|------|------|
 | 👥 | **多用户多 Agent 专家团** | 一人管理，全家共用；内置专家库与专家市场，按场景切换专业角色 |
-| 🤝 | **专家共享** | 支持发布专家与技能 / 子智能体共享池，同实例内复用优秀配置 |
+| 🤝 | **云端协作** | 将本机 Octop 连接到另一实例，可浏览对端专家并跨实例对话；对话记录保留在专家所在侧 |
 | 🎭 | **MBTI 人格** | 16 种人格模板与互动测试，为每个 Agent 赋予鲜明性格 |
 | 🎯 | **AgentTeams** *（Beta）* | 协调者调度多位专家协作完成多步骤任务；[详见](docs/expert-teams.md) |
 | 🔒 | **更安全** | JWT 多用户隔离、工具审批、Shell 命令防护与敏感信息脱敏，数据留在本地 |
-| 🔌 | **Connector 拓展体系** | 一键接入腾讯全家桶（文档 / 会议 / 新闻等），OAuth 与 MCP 网关轻松扩展 |
+| 🔌 | **Connector 拓展体系** | 一键接入腾讯全家桶（文档 / 会议 / 新闻等），OAuth 与 MCP 网关轻松扩展 — [支持的连接器](docs/connectors.md) |
 | 💾 | **可插拔工作区后端** | 本地目录、Docker 沙箱、PostgreSQL 或 COS/S3 存放 Agent 文件 — 与控制面数据库分离 |
 | 🧠 | **可迁移记忆系统** | 基于 [Octop Memory](https://github.com/TencentCloud/octop-memory)，记忆随工作区迁移 |
 | 📚 | **知识库** | 基于文档的 RAG 检索；支持同实例共享语料，让回答锚定私有知识 |
@@ -279,6 +280,9 @@ octop service start
 # 构建并启动
 docker compose -f docker/docker-compose.yml up -d
 
+# 官方 GHCR 拉取失败时用国内源（不本地构建）
+docker compose -f docker/docker-compose.cn.yml up -d
+
 # 或手动构建
 bash docker/docker_build.sh
 docker run -d \
@@ -301,7 +305,6 @@ docker run -d \
 | `OCTOP_DATA` | `~/.octop` | 宿主机数据目录（compose 挂载） |
 
 完整变量列表见 [`.env.example`](.env.example)。
-
 
 ## 📑 目录
 
@@ -338,7 +341,7 @@ docker run -d \
 | 本地脚本 | macOS / Linux | `bash scripts/install.sh` |
 | 本地脚本 | Windows | `scripts\install.bat` 或 `install.ps1` |
 | PyPI | 全平台 | `pip install octop`（可选 extras 如 `local-embedding`） |
-| Docker | 全平台 | `docker/docker-compose.yml` |
+| Docker | 全平台 | `docker/docker-compose.yml`；国内镜像 `docker/docker-compose.cn.yml` |
 
 所有安装脚本均在 `~/.octop/venv` 创建隔离环境，并通过 `~/.octop/bin/octop` 包装 CLI，不会影响系统 Python。
 
@@ -392,6 +395,12 @@ OpenAI 兼容 API、DashScope（千问）、Ollama 等预设 — 在控制台或
 | **Web 控制台** | 默认启用 |
 
 其他通道类型（如元宝、小艺、MQTT 等）可通过网关接入 — 详见控制台或 CLI 的通道配置。
+
+### 支持的连接器
+
+内置 OAuth / MCP 连接器包括腾讯文档、腾讯会议、Notion、滴答清单、OpenAlex、飞书 CLI、企业微信 CLI、Agent Mail、Obsidian、WeKnora、Dify 等。名称与描述支持中英双语。
+
+完整目录、鉴权类型与 MCP 模式见 **[docs/connectors.md](docs/connectors.md)**。也可在控制台添加自定义 MCP。
 
 ## 📖 CLI 参考
 
