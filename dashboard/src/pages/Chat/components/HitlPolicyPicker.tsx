@@ -39,12 +39,19 @@ export default function HitlPolicyPicker({
       onOpenChange={setOpen}
       overlayClassName={styles.modelPopover}
       content={
-        <div className={styles.modeMenu}>
+        <div
+          className={styles.modeMenu}
+          role="group"
+          aria-label={t("chat.hitl.policy.picker")}
+        >
           <button
             type="button"
             className={`${styles.modeMenuItem} ${
               policy.mode === "ask" ? styles.modeMenuItemActive : ""
             }`}
+            // The active policy was carried by a CSS class alone, so a screen
+            // reader could not tell which mode is in force.
+            aria-pressed={policy.mode === "ask"}
             onClick={() => {
               onChange({ mode: "ask" });
               setOpen(false);
@@ -63,6 +70,7 @@ export default function HitlPolicyPicker({
             className={`${styles.modeMenuItem} ${
               policy.mode === "allow_all" ? styles.modeMenuItemActive : ""
             }`}
+            aria-pressed={policy.mode === "allow_all"}
             onClick={() => {
               onChange({ mode: "allow_all" });
               setOpen(false);
