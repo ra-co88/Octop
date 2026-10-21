@@ -12,7 +12,7 @@
  */
 
 import "@testing-library/jest-dom/vitest";
-import { afterEach, vi } from "vitest";
+import { afterEach, beforeAll, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
 
 // Auto-mock react-i18next so components' ``t(key, fallback)`` calls
@@ -56,6 +56,24 @@ vi.mock("react-i18next", async (importOriginal) => {
 
 afterEach(() => {
   cleanup();
+});
+
+/**
+ * Pre-warm the heaviest lazily-imported module.
+ *
+ * useChat's loadThreadHistory resolves ./useSessions through a dynamic
+ * await import(...), so the first test that calls it pays the whole Vite
+ * transform cost inside its own timed window. That transform measures
+ * ~2.4 s on an idle machine and exceeds the 5 s default testTimeout when
+ * the box is busy, which made useChat.history.test.ts fail as a unit under
+ * load while passing in isolation.
+ *
+ * Importing it here moves that cost into setup, where no per-test timeout
+ * applies. The module has no import-time side effects; it only defines
+ * hooks and helpers.
+ */
+beforeAll(async () => {
+  await import("../pages/Chat/hooks/useSessions");
 });
 
 if (typeof window !== "undefined") {
