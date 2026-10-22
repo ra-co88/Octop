@@ -41,6 +41,37 @@ jobs:
       - name: Test
         run: make test
 
+  # Non-blocking dashboard checks: the vitest suite is not yet stable enough to gate
+  # merges (see .agents/audit/vitest-*.md), but running it on every PR means a regression
+  # shows up in the checks list instead of only on a developer's machine.
+  # `continue-on-error` keeps this out of the required-checks set.
+  dashboard-checks:
+    name: "Dashboard (non-blocking)"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc -b
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
   test-windows:
     name: Windows / Python 3.12
     runs-on: windows-latest
