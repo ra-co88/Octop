@@ -110,7 +110,7 @@ def _enforce_wizard_open(server: Any) -> None:
 
 
 def _setup_completed(server: Any) -> bool:
-    """True once ``/setup/finish`` has run (persisted flag, not a row count)."""
+    """True once `/setup/finish` has run (persisted flag, not a row count)."""
     services = getattr(server, "services", None)
     if services is not None and services.settings_repo is not None:
         return services.settings_repo.get("setup_completed_at") is not None
@@ -258,7 +258,8 @@ async def status(server: Any = Depends(get_server)) -> dict[str, Any]:
         "setup_required": setup_required,
         "wizard_password_required": password_required,
         "wizard_password_exists": (
-            password_required and _wizard.read_password(Path.home()) is not None
+            password_required
+            and _wizard.read_password(server.paths.root, legacy_home=Path.home()) is not None
         ),
         "database_driver": database_driver,
         "database_bound": server.database_bound,
@@ -345,7 +346,7 @@ async def verify_password(
         server.wizard_tokens.record_attempt(client_ip)
     except RateLimited:
         raise OctopError(ErrorCode.SETUP_RATE_LIMITED, "too many attempts") from None
-    expected = _wizard.read_password(Path.home())
+    expected = _wizard.read_password(server.paths.root, legacy_home=Path.home())
     if expected is None or body.password != expected:
         raise OctopError(ErrorCode.SETUP_PASSWORD_WRONG, "wrong password")
     token, ttl = server.wizard_tokens.issue()
@@ -420,7 +421,7 @@ async def resume_wizard(
         token = ""
     authorized = server.wizard_tokens.validate(token)
     if not authorized:
-        expected = _wizard.read_password(Path.home())
+        expected = _wizard.read_password(server.paths.root, legacy_home=Path.home())
         if expected is not None and token == expected:
             authorized = True
     if not authorized:
